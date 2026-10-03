@@ -1,0 +1,57 @@
+.el-stage{
+  --bg:#ECDBD6;--env:#282749;--env-back:#212040;--paper:#F3EEE3;--ink:#262648;--wax:#7A1F2E;--muted:#5E5A7E;
+  position:relative;box-sizing:border-box;min-height:100vh;min-height:100dvh;margin:0;
+  background:var(--bg);font-family:"Amiri",Georgia,"Times New Roman",serif;color:var(--ink);line-height:normal;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5rem;
+  padding:calc(10rem + env(safe-area-inset-top,0px)) 1rem calc(2rem + env(safe-area-inset-bottom,0px));overflow:hidden
+}
+.el-stage *, .el-stage *::before, .el-stage *::after{box-sizing:border-box}
+
+.el-envelope{--w:min(380px,86vw);position:relative;width:var(--w);height:calc(var(--w) * .64);perspective:1400px;
+filter:drop-shadow(0 22px 28px rgba(40,39,73,.35))}
+.el-piece{position:absolute;inset:0;background:var(--env) var(--tex) center/cover}
+.el-back{background-color:var(--env-back);background-blend-mode:multiply;border-radius:4px;z-index:0}
+.el-fold{position:absolute;inset:0;pointer-events:none}
+.el-sides{z-index:3;filter:drop-shadow(0 0 3px rgba(5,5,20,.6))}
+.el-side-l{clip-path:polygon(0 0,52% 56%,0 100%)}
+.el-side-r{clip-path:polygon(100% 0,48% 56%,100% 100%)}
+.el-bottom{z-index:4;filter:drop-shadow(0 -3px 4px rgba(5,5,20,.55))}
+.el-bottom-p{clip-path:polygon(0 100%,50% 42%,100% 100%);border-radius:0 0 4px 4px}
+.el-flap-wrap{height:62%;bottom:auto;transform-origin:top center;filter:drop-shadow(0 5px 5px rgba(5,5,20,.6))}
+.el-flap{clip-path:polygon(0 0,100% 0,50% 100%)}
+
+.el-seal{position:absolute;left:50%;top:62%;width:86px;height:86px;margin:-43px 0 0 -43px;padding:0;border:0;background:none;
+cursor:pointer;z-index:6;border-radius:50%;filter:drop-shadow(0 4px 5px rgba(0,0,0,.45))}
+.el-seal img{width:100%;height:100%;display:block;pointer-events:none}
+.el-seal:focus-visible{outline:2px solid var(--muted);outline-offset:4px}
+
+.el-paper{--ar:.696;color:var(--ink);line-height:1.9}
+/* paper + its shadow live on a pseudo-element so the shadow never darkens the text */
+.el-paper::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+background:var(--paper-img) center/100% 100% no-repeat;filter:drop-shadow(0 6px 10px rgba(5,5,20,.35))}
+.el-content{position:absolute;inset:11% 12% 9%;overflow:hidden;z-index:1}
+.el-content p{margin:0 0 .8em}
+.el-small{position:absolute;bottom:4px;z-index:2;height:94%;width:88%;left:6%}
+.el-small::before{background-size:100% auto;background-position:top center}
+.el-small .el-content{inset:10% 8% 0}
+.el-small-c{font-size:.55rem;line-height:1.7}
+.el-big{position:relative;width:min(440px,90vw,calc((100vh - 8rem) * .696),calc((100dvh - 8rem) * .696));aspect-ratio:.696}
+.el-big-c{font-size:clamp(.9rem,2.9vw,1.12rem);overflow:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none;outline:none}
+.el-big-c::-webkit-scrollbar{display:none}
+.el-greet{font-family:"Reem Kufi",serif;color:var(--wax);font-size:1.3em}
+.el-sign{text-align:left;font-style:italic;margin-top:1.4em!important}
+.el-mini-seal{width:52px;display:block;margin-inline-start:auto}
+.el-hint{margin:0;color:var(--muted);font-size:1.05rem}
+.el-overlay{position:absolute;inset:0;display:flex;flex-direction:column;gap:1.2rem;align-items:center;justify-content:center;padding:1.25rem;
+background:rgba(236,219,214,.82);z-index:10}
+
+.el-big-c.el-more{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 3em),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 3em),transparent)}
+.el-scroll-hint{position:absolute;left:50%;bottom:2.5%;margin-left:-11px;color:var(--wax);opacity:0;transition:opacity .25s;pointer-events:none;line-height:0;z-index:1}
+.el-scroll-hint.is-on{opacity:.85;animation:el-bob 1.4s ease-in-out infinite}
+@keyframes el-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+@media (prefers-reduced-motion:reduce){.el-scroll-hint.is-on{animation:none}}
+/* large screens: scale text with the paper so the letter looks the same as on mobile at any size */
+@media (min-width:641px){
+  .el-big{container-type:inline-size}
+  .el-big-c{font-size:4.1cqw}
+}

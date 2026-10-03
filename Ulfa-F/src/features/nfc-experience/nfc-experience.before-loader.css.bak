@@ -1,0 +1,418 @@
+.nfc-intro {
+  --nfc-pink: #ecdbd7;
+  --nfc-ink: #2c2a4c;
+  --nfc-key: #f2e7e1;
+  display: flex;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--nfc-pink);
+  color: var(--nfc-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* New theme identifiers can override these variables without changing layout. */
+.nfc-intro--theme-romantic {
+  --nfc-pink: #ecdbd7;
+  --nfc-ink: #2c2a4c;
+  --nfc-key: #f2e7e1;
+}
+
+.nfc-intro__artboard {
+  position: relative;
+  container-type: inline-size;
+  width: min(100vw, 46.88dvh);
+  aspect-ratio: 1201.87 / 2563.8;
+}
+
+.nfc-intro__splash,
+.nfc-intro__password {
+  position: absolute;
+  inset: 0;
+}
+
+.nfc-intro__splash {
+  animation: nfc-intro-fade-out 350ms ease-in 1450ms both;
+}
+
+.nfc-intro__skip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nfc-intro__skip:focus-visible,
+.nfc-intro__key:focus-visible {
+  outline: 3px solid #751427;
+  outline-offset: 3px;
+}
+
+.nfc-brand-mark {
+  position: absolute;
+  top: 17.2%;
+  left: 50%;
+  display: block;
+  width: 28cqw;
+  height: 18.7cqw;
+  overflow: hidden;
+  background: var(--nfc-pink);
+  transform: translateX(-50%);
+}
+
+.nfc-brand-mark--small {
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.68);
+}
+
+.nfc-brand-mark img {
+  position: absolute;
+  top: -17.4cqw;
+  left: -30.3cqw;
+  display: block;
+  width: 88.6cqw;
+  max-width: none;
+  height: auto;
+  mix-blend-mode: darken;
+  user-select: none;
+}
+
+.nfc-intro__title,
+.nfc-intro__subtitle,
+.nfc-intro__pin-dots {
+  position: absolute;
+  left: 50%;
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.nfc-intro__title {
+  top: 30.1%;
+  font-family: 'Great Vibes', cursive;
+  font-size: 10.1cqw;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.nfc-intro__subtitle {
+  top: 38%;
+  left: 10%;
+  width: 80%;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 4.4cqw;
+  font-weight: 400;
+  line-height: 1.2;
+  transform: none;
+}
+
+.nfc-intro__pin-dots {
+  top: 43.65%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1cqw;
+}
+
+.nfc-intro__dot {
+  display: block;
+  width: 6.2cqw;
+  aspect-ratio: 1;
+  border: 0.55cqw solid var(--nfc-ink);
+  border-radius: 50%;
+  background: transparent;
+  transition: background-color 140ms ease;
+}
+
+.nfc-intro__dot--filled {
+  background: var(--nfc-ink);
+}
+
+.nfc-intro__keypad {
+  position: absolute;
+  top: 51.15%;
+  left: 8%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 3.4cqw;
+  width: 84%;
+  height: 40.5%;
+  box-sizing: border-box;
+  padding: 7cqw 6cqw;
+  border-radius: 10cqw;
+  background: var(--nfc-ink);
+}
+
+.nfc-intro__key {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3.4cqw;
+  background: var(--nfc-key);
+  color: var(--nfc-ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 10.5cqw;
+  font-style: italic;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: filter 120ms ease;
+}
+
+.nfc-intro__key:active:not(:disabled) {
+  filter: brightness(0.89);
+}
+
+.nfc-intro__key--delete {
+  font-style: normal;
+}
+
+.nfc-intro__key--delete svg {
+  width: 8cqw;
+  height: 8cqw;
+}
+
+.nfc-intro__key--ok {
+  font-size: 7.5cqw;
+  font-style: normal;
+}
+
+.nfc-intro__key--ok:disabled,
+.nfc-intro__key--delete:disabled {
+  cursor: default;
+}
+
+.nfc-intro__panel {
+  position: absolute;
+  top: 47%;
+  left: 8%;
+  width: 84%;
+  box-sizing: border-box;
+  padding: 6cqw;
+  border-radius: 10cqw;
+  background: var(--nfc-ink);
+  color: var(--nfc-key);
+  box-shadow: 0 1.5cqw 3cqw rgb(44 42 76 / 10%);
+}
+
+.nfc-intro__calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5cqw;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 6cqw;
+  font-weight: 600;
+}
+
+.nfc-intro__calendar-header button {
+  width: 10cqw;
+  height: 10cqw;
+  border: 0;
+  border-radius: 3cqw;
+  background: var(--nfc-key);
+  color: var(--nfc-ink);
+  font-size: 8cqw;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.nfc-intro__calendar-jump {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 1cqw;
+}
+
+.nfc-intro__calendar-jump select {
+  min-width: 0;
+  padding: 0 0.3cqw 0.5cqw;
+  border: 0;
+  border-bottom: 1px solid rgb(242 231 225 / 45%);
+  border-radius: 0;
+  background: transparent;
+  color: var(--nfc-key);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 5.2cqw;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nfc-intro__calendar-jump select:first-child {
+  width: 26cqw;
+}
+
+.nfc-intro__calendar-jump select:last-child {
+  width: 17cqw;
+}
+
+.nfc-intro__calendar-jump option {
+  background: var(--nfc-ink);
+  color: var(--nfc-key);
+}
+
+.nfc-intro__calendar-jump select:focus-visible {
+  outline: 2px solid var(--nfc-key);
+  outline-offset: 2px;
+}
+
+.nfc-intro__calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1.5cqw;
+  text-align: center;
+}
+
+.nfc-intro__calendar-grid > * {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 1;
+}
+
+.nfc-intro__weekday {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 3.7cqw;
+}
+
+.nfc-intro__calendar-grid button {
+  border: 0;
+  border-radius: 2.3cqw;
+  background: var(--nfc-key);
+  color: var(--nfc-ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 5cqw;
+  cursor: pointer;
+}
+
+.nfc-intro__calendar-grid button.is-selected {
+  background: #b98692;
+  color: white;
+}
+
+.nfc-intro__panel-ok {
+  display: block;
+  width: 100%;
+  min-height: 12cqw;
+  margin-top: 6cqw;
+  border: 0;
+  border-radius: 3cqw;
+  background: var(--nfc-key);
+  color: var(--nfc-ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 6cqw;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nfc-intro__panel-ok:disabled {
+  opacity: 1;
+  background: var(--nfc-key);
+  color: var(--nfc-ink);
+  cursor: default;
+}
+
+.nfc-intro__text-panel {
+  top: 47%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5.5cqw 6cqw 6cqw;
+}
+
+.nfc-intro__text-ornament {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 3cqw;
+  color: #d5adaf;
+  font-size: 5cqw;
+  line-height: 1;
+}
+
+.nfc-intro__text-ornament::before,
+.nfc-intro__text-ornament::after {
+  height: 1px;
+  flex: 1;
+  background: #d5adaf;
+  content: '';
+}
+
+.nfc-intro__text-panel label {
+  display: block;
+  margin-top: 5cqw;
+  font-family: 'Great Vibes', cursive;
+  font-size: 9cqw;
+  line-height: 1.2;
+}
+
+.nfc-intro__text-hint {
+  margin: 2cqw 0 6cqw;
+  color: #e4d2d3;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 4cqw;
+  text-align: center;
+}
+
+.nfc-intro__text-panel input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 13cqw;
+  padding: 3cqw 4cqw;
+  border: 0;
+  border-radius: 3cqw;
+  background: var(--nfc-key);
+  color: var(--nfc-ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 5.2cqw;
+  text-align: center;
+}
+
+.nfc-intro__text-panel input::placeholder {
+  color: #77718b;
+}
+
+.nfc-intro__text-panel .nfc-intro__panel-ok {
+  margin-top: 4cqw;
+}
+
+.nfc-intro__status {
+  position: absolute;
+  top: 93%;
+  left: 8%;
+  width: 84%;
+  margin: 0;
+  color: var(--nfc-ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 4.3cqw;
+  text-align: center;
+}
+
+@keyframes nfc-intro-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nfc-intro__splash {
+    animation: none;
+  }
+
+  .nfc-intro__dot,
+  .nfc-intro__key {
+    transition: none;
+  }
+}
