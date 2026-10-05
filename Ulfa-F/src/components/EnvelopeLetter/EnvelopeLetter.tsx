@@ -12,6 +12,7 @@ export interface EnvelopeLetterProps {
   sign?: string;
   lang?: 'ar' | 'en';
   theme?: string;
+  occasion?: string;
   onOpened?: () => void;
   onCompleted?: (reason: 'advance' | 'leave') => void;
 }
@@ -69,7 +70,8 @@ function EnvelopeLetter({
   body = LETTER.body,
   sign = LETTER.sign,
   lang = 'ar',
-  theme = 'romantic',
+  theme = 'luxury',
+  occasion = 'romantic',
   onOpened,
   onCompleted,
 }: EnvelopeLetterProps = {}) {
@@ -167,7 +169,7 @@ function EnvelopeLetter({
   return (
     <MotionConfig reducedMotion="user">
       <LayoutGroup id={layoutGroupId}>
-        <main ref={stageNode} className={`el-stage el-stage--theme-${theme}`} data-theme={theme} lang={lang} dir={lang === "ar" ? "rtl" : "ltr"}>
+        <main ref={stageNode} className={`el-stage el-stage--theme-${theme}`} data-theme={theme} data-occasion={occasion} lang={lang} dir={lang === "ar" ? "rtl" : "ltr"}>
           <motion.div
             className="el-envelope"
             style={{ "--tex": `url(${TEXTURE})`, "--paper-img": `url(${PAPER})` } as EnvelopeStyle}

@@ -12,6 +12,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { NfcExperiencePage } from './features/nfc-experience/NfcExperiencePage';
+// Loaded only by buyers preparing a gift; recipients never download it.
+const SetupPage = React.lazy(() => import('./features/nfc-setup/SetupPage').then((m) => ({ default: m.SetupPage })));
 
 export interface RouteConfigItem {
   path: string;
@@ -36,6 +38,11 @@ export const routesConfig: RouteConfigItem[] = [
   {
     path: '/nfc/:nfcId',
     element: React.createElement(NfcExperiencePage),
+    showInNav: false,
+  },
+  {
+    path: '/setup/:token',
+    element: React.createElement(React.Suspense, { fallback: null }, React.createElement(SetupPage)),
     showInNav: false,
   },
   {

@@ -16,6 +16,8 @@ import { CreateMerchantOrderDto } from './dto/create-merchant-order.dto';
 import { OrdersQueryDto } from './dto/orders-query.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order, OrderSource, OrderStatus } from './entities/order.entity';
+import { ItemMedia } from '../nfc-items/entities/item-media.entity';
+import { StorageService } from '../storage/storage.service';
 
 export interface CreatedMerchantOrder {
   id: string;
@@ -69,6 +71,7 @@ export class OrdersService {
     private readonly usersService: UsersService,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly storage: StorageService,
   ) {}
 
   private sanitizeOrder(order: Order): Order {
@@ -502,6 +505,17 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException(`Order with ID "${id}" not found`);
     }
+    // Deleting the order cascades to its items and media rows, but not to
+    // the stored files: remove those first.
+    const media = await this.dataSource
+      .getRepository(ItemMedia)
+      .createQueryBuilder('media')
+      .innerJoin('media.nfcItem', 'item')
+      .where('item.order_id = :id', { id })
+      .getMany();
+    await this.storage.deleteMany(
+      media.flatMap((m) => [m.storageKey, m.thumbKey] as string[]),
+    );
     await this.orderRepository.remove(order);
     return { message: `Order with ID "${id}" has been deleted successfully` };
   }

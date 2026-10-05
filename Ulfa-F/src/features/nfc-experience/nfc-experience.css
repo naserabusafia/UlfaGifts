@@ -13,7 +13,7 @@
 }
 
 /* New theme identifiers can override these variables without changing layout. */
-.nfc-intro--theme-romantic {
+.nfc-intro--theme-luxury {
   --nfc-pink: #ecdbd7;
   --nfc-ink: #2c2a4c;
   --nfc-key: #f2e7e1;
@@ -145,7 +145,7 @@
 
 .nfc-intro__title {
   top: 30.1%;
-  font-family: 'Great Vibes', cursive;
+  font-family: 'Great Vibes', 'El Messiri', cursive;
   font-size: 10.1cqw;
   font-weight: 400;
   line-height: 1.25;
@@ -156,7 +156,7 @@
   top: 38%;
   left: 10%;
   width: 80%;
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 4.4cqw;
   font-weight: 400;
   line-height: 1.2;
@@ -211,7 +211,7 @@
   border-radius: 3.4cqw;
   background: var(--nfc-key);
   color: var(--nfc-ink);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 10.5cqw;
   font-style: italic;
   font-weight: 700;
@@ -263,7 +263,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 5cqw;
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 6cqw;
   font-weight: 600;
 }
@@ -296,7 +296,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--nfc-key);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 5.2cqw;
   font-weight: 600;
   cursor: pointer;
@@ -335,7 +335,7 @@
 }
 
 .nfc-intro__weekday {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 3.7cqw;
 }
 
@@ -344,7 +344,7 @@
   border-radius: 2.3cqw;
   background: var(--nfc-key);
   color: var(--nfc-ink);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 5cqw;
   cursor: pointer;
 }
@@ -363,7 +363,7 @@
   border-radius: 3cqw;
   background: var(--nfc-key);
   color: var(--nfc-ink);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 6cqw;
   font-weight: 700;
   cursor: pointer;
@@ -405,7 +405,7 @@
 .nfc-intro__text-panel label {
   display: block;
   margin-top: 5cqw;
-  font-family: 'Great Vibes', cursive;
+  font-family: 'Great Vibes', 'El Messiri', cursive;
   font-size: 9cqw;
   line-height: 1.2;
 }
@@ -413,7 +413,7 @@
 .nfc-intro__text-hint {
   margin: 2cqw 0 6cqw;
   color: #e4d2d3;
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 4cqw;
   text-align: center;
 }
@@ -427,7 +427,7 @@
   border-radius: 3cqw;
   background: var(--nfc-key);
   color: var(--nfc-ink);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 5.2cqw;
   text-align: center;
 }
@@ -447,7 +447,7 @@
   width: 84%;
   margin: 0;
   color: var(--nfc-ink);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 4.3cqw;
   text-align: center;
 }

@@ -1,63 +1,56 @@
-.nfc-sections {
-  --memory-navy: #282749;
-  --memory-cream: #f3eee3;
-  background: var(--memory-navy);
-}
+.nfc-sections { --memory-navy: #282749; --memory-cream: #f3eee3; background: var(--memory-navy); }
 .nfc-text-section { padding: 5rem 1.5rem; min-height: 60dvh; color: var(--memory-cream); text-align: center; }
 .nfc-text-section p { white-space: pre-line; }
-.photo-wheel { display: flex; flex-direction: column; width: 100%; min-height: 100dvh; overflow: clip; background: var(--memory-navy); color: var(--memory-cream); padding: clamp(2rem, 5vw, 3.5rem) 0 1.5rem; }
+.photo-wheel { width: 100%; min-height: 100dvh; background: var(--memory-navy); color: var(--memory-cream); padding: clamp(28px, 4vw, 48px) 0 32px; }
 .photo-wheel *, .photo-wheel *::before, .photo-wheel *::after, .photo-card, .photo-card * { box-sizing: border-box; }
-.photo-wheel__heading { text-align: center; width: min(86%, 650px); margin: 0 auto 2.5rem; }
-.photo-wheel__heading h2 { font: 400 clamp(2rem, 7vw, 3.4rem)/1.25 'Great Vibes', cursive; margin: 0 0 1.4rem; }
-.photo-wheel__heading[dir="rtl"] h2 { font-family: 'Amiri', Georgia, serif; font-style: italic; }
-.photo-wheel__heading p { font: 400 clamp(.85rem, 2.6vw, 1.05rem)/1.6 'Cormorant Garamond', Georgia, serif; font-variant: small-caps; text-transform: uppercase; letter-spacing: .12em; margin: 0 auto 1.2rem; white-space: pre-line; }
+.photo-wheel__heading { text-align: center; width: min(86%, 730px); margin: 0 auto 24px; }
+.photo-wheel__heading h2 { font: 400 clamp(2rem, 7vw, 3.4rem)/1.18 'Great Vibes', 'El Messiri', cursive; margin: 0 0 18px; }
+.photo-wheel__heading[dir="rtl"] h2 { font-family: 'El Messiri', Georgia, serif; font-style: normal; font-weight: 600; }
+.photo-wheel__heading p { font: 400 clamp(.85rem, 2.6vw, 1.05rem)/1.6 'Cormorant Garamond', 'El Messiri', Georgia, serif; font-variant: small-caps; text-transform: uppercase; letter-spacing: .12em; margin: 0 auto 16px; white-space: pre-line; }
 .photo-wheel__heading[dir="rtl"] p { letter-spacing: normal; }
-.photo-wheel__ornament { width: 100px; height: 22px; margin: auto; fill: none; stroke: currentColor; stroke-width: 1; opacity: .8; }
-.photo-wheel__canvas {
-  container-type: inline-size;
-  --wheel-radius: 36cqw;
-  --photo-width: clamp(32px, 21cqw, 150px);
-  --photo-height: calc(var(--photo-width) * .78);
-  --wheel-pivot: calc(50cqw + 12px);
-  position: relative; flex-shrink: 0; width: min(calc(100% - 2rem), 680px, 65dvh); aspect-ratio: 1 / 1.2;
-  margin: auto auto 0; overflow: clip; touch-action: pan-y; outline-offset: -5px; user-select: none;
-}
-.photo-wheel__disk {
-  position: absolute; left: 50%; top: var(--wheel-pivot); width: calc(var(--wheel-radius) * 2); height: calc(var(--wheel-radius) * 2);
-  border-radius: 50%; transform: translate(-50%, -50%) rotate(var(--disk-angle));
-  background: var(--memory-cream); transition: transform 480ms cubic-bezier(.22, 1, .36, 1); pointer-events: none;
-}
-.photo-wheel__disk::before { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: .11;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23000' filter='url(%23n)' opacity='.5' d='M0 0h150v150H0z'/%3E%3C/svg%3E");
-}
-.photo-wheel__notch { position: absolute; left: 50%; top: 50%; width: clamp(3px, .8cqw, 5px); height: clamp(8px, 2cqw, 14px); margin: -1cqw 0 0 -.4cqw;
-  background: var(--memory-navy); border-radius: 1px; transform: rotate(var(--slot-angle)) translateY(calc(-1 * var(--wheel-radius) + 2px)); }
-.photo-wheel__hole { position: absolute; width: 19%; height: 19%; left: 40.5%; top: 40.5%; border-radius: 50%; background: var(--memory-navy); }
-.photo-wheel__photo { position: absolute; left: 50%; top: var(--wheel-pivot); width: var(--photo-width); height: var(--photo-height);
-  margin: calc(var(--photo-height) * -.5) 0 0 calc(var(--photo-width) * -.5); padding: 0; border: 0; border-radius: 14px;
-  background: var(--memory-cream); box-shadow: 0 7px 20px #10102040; cursor: pointer;
-  transition: transform 480ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease; }
-.photo-wheel__photo img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; pointer-events: none; }
-.photo-wheel__number { position: absolute; top: calc(100% + 8px); right: -8px; color: var(--memory-navy); font: 400 clamp(.9rem, 3cqw, 1.2rem)/1 'Cormorant Garamond', Georgia, serif; text-align: center; }
-.photo-wheel__marker { position: absolute; left: 50%; top: calc(var(--wheel-pivot) - var(--wheel-radius) + var(--photo-height) * .5 + 18px); z-index: 2; transform: translateX(-50%); color: var(--memory-navy); display: grid; text-align: center; font: 400 1.2rem/1 Georgia, serif; pointer-events: none; }
-.photo-wheel__marker span { font-size: .8rem; margin-top: 2px; }
-.photo-wheel__controls { position: absolute; z-index: 100; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 24px; align-items: center; color: var(--memory-cream); }
+.photo-wheel__ornament { width: 132px; height: 24px; }
+.photo-wheel__frame { width: min(var(--reel-width), var(--reel-max)); margin: auto; container-type: inline-size; display: flow-root; }
+.photo-wheel__canvas { width: 100%; aspect-ratio: 1; position: relative; container-type: inline-size; margin-top: 14cqw; touch-action: none; border-radius: 50%; user-select: none; cursor: grab; outline-offset: 5px; }
+.photo-wheel__disk, .photo-wheel__progress { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.photo-wheel__disk { transition: transform var(--reel-duration) var(--reel-easing); }
+.photo-wheel__progress { fill: none; stroke: var(--memory-navy); stroke-width: 2.2; }
+.photo-wheel__progress circle { vector-effect: non-scaling-stroke; }
+.photo-wheel__progress-track { opacity: .25; }
+.photo-wheel__progress-fill { transition: stroke-dashoffset var(--reel-duration) var(--reel-easing); }
+.photo-wheel__photo { position: absolute; left: 50%; top: 50%; width: var(--photo-size); aspect-ratio: 1;
+  margin: calc(var(--photo-size) * -.5) 0 0 calc(var(--photo-size) * -.5); padding: 0;
+  border: 2px solid transparent; border-radius: 18%; background: #e4ddd3; cursor: pointer;
+  transition: transform var(--reel-duration) var(--reel-easing), box-shadow var(--reel-duration) var(--reel-easing), opacity var(--reel-duration) var(--reel-easing); }
+.photo-wheel__photo img { width: 100%; height: 100%; display: block; border-radius: inherit; object-fit: cover; pointer-events: none; filter: brightness(var(--photo-brightness)); -webkit-user-drag: none; }
+.photo-wheel__photo.is-active { border-color: #fff; }
+.photo-wheel__photo.is-pile { border-color: #fff; border-radius: 3px; }
+.photo-wheel__pile-accessible { display: none; }
+.photo-wheel__number { position: absolute; left: 50%; top: 50%; width: 5cqw; height: 5cqw; margin: -2.5cqw 0 0 -2.5cqw; color: #2B2952;
+  font: 700 4.2cqw/1 'Cormorant Garamond', 'El Messiri', Georgia, serif; display: grid; place-items: center; pointer-events: none; z-index: 65;
+  transition: transform var(--reel-duration) var(--reel-easing); }
+.photo-wheel__center-action { position: absolute; left: 50%; top: 50%; z-index: 90; transform: translate(-50%, -50%); }
+.photo-wheel__marker { position: absolute; left: 50%; top: 22%; z-index: 85; transform: translateX(-50%); color: #2B2952;
+  display: flex; flex-direction: column; align-items: center; font: 400 4.2cqw/1 Georgia, 'El Messiri', serif; pointer-events: none; }
+.photo-wheel__marker svg { width: 2.3cqw; height: 3.5cqw; margin-top: 1cqw; fill: none; stroke: currentColor; stroke-width: 1; }
+.photo-wheel__pile-badge { position: absolute; left: 50%; top: 83%; transform: translate(-50%, -50%); z-index: 90;
+  border: 1px solid #f3eee350; border-radius: 999px; background: var(--memory-navy); color: var(--memory-cream);
+  padding: .5cqw 2cqw; font: 700 max(12px, 3.6cqw)/1.3 'Cormorant Garamond', 'El Messiri', Georgia, serif; cursor: pointer; }
+.photo-wheel__controls { display: flex; justify-content: center; gap: 26px; align-items: center; color: var(--memory-cream); margin: 28px auto 0; }
 .photo-wheel__controls button, .photo-card__controls button, .photo-card__close { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid currentColor; border-radius: 50%; color: inherit; background: transparent; cursor: pointer; }
 .photo-wheel__controls button:disabled, .photo-card__controls button:disabled { opacity: .3; cursor: default; }
-.photo-wheel__counter { font: 400 1.1rem 'Cormorant Garamond', Georgia, serif; min-width: 3.3rem; text-align: center; }
+.photo-wheel__counter { font: 400 1.2rem 'Cormorant Garamond', 'El Messiri', Georgia, serif; min-width: 3.3rem; text-align: center; }
 .photo-wheel button:focus-visible, .photo-wheel__canvas:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 .photo-wheel__photo:focus-visible { outline-color: var(--memory-navy); }
-.is-dragging .photo-wheel__photo, .is-dragging .photo-wheel__disk { transition: none; cursor: grabbing; }
+.is-dragging .photo-wheel__photo, .is-dragging .photo-wheel__disk, .is-dragging .photo-wheel__number { transition: none; cursor: grabbing; }
 .photo-card-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
-  background: #090a1ac4; backdrop-filter: blur(9px); padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
-  animation: photo-backdrop-in 180ms ease both; }
+  background: #090a1ac4; backdrop-filter: blur(9px); padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); animation: photo-backdrop-in 180ms ease both; }
 .photo-card { position: relative; width: min(100%, 540px); max-height: 90dvh; overflow: auto; background: white; padding: 14px 14px 22px;
-  color: #282749; box-shadow: 0 20px 60px #0006; border-radius: 3px; animation: photo-card-in 220ms cubic-bezier(.22, 1, .36, 1) both; }
+  color: #282749; box-shadow: 0 20px 60px #0006; border-radius: 3px; animation: photo-card-in 220ms cubic-bezier(.22,.8,.25,1) both; }
 .photo-card figure { margin: 0; touch-action: pan-y; }
-.photo-card figure img { width: 100%; max-height: 62dvh; min-height: 80px; object-fit: contain; display: block; }
-.photo-card figcaption { font: 400 1.25rem/1.5 'Cormorant Garamond', Georgia, serif; text-align: center; white-space: pre-line; margin: 18px 8px 0; overflow-wrap: anywhere; }
+.photo-card figure img { width: 100%; max-height: 62dvh; min-height: 80px; object-fit: contain; display: block; -webkit-user-drag: none; user-select: none; }
+.photo-card figcaption { font: 400 1.25rem/1.5 'Cormorant Garamond', 'El Messiri', Georgia, serif; text-align: center; white-space: pre-line; margin: 18px 8px 0; overflow-wrap: anywhere; }
 .photo-card__close { position: absolute; top: 20px; right: 20px; z-index: 1; background: #fffffff0; border-color: transparent; }
-.photo-card__controls { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 22px; font: 1rem Georgia, serif; }
+.photo-card__controls { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 22px; font: 1rem Georgia, 'IBM Plex Sans Arabic', serif; }
 .photo-card button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .photo-card-backdrop.is-closing { animation: photo-backdrop-out 180ms ease both; }
 .is-closing .photo-card { animation: photo-card-out 180ms ease both; }
@@ -65,7 +58,16 @@
 @keyframes photo-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes photo-card-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
 @keyframes photo-card-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.94); } }
+@media (min-width: 900px) and (max-height: 900px) {
+  .photo-wheel { padding: 8px 0; }
+  .photo-wheel__heading { width: min(90%, 1000px); margin-bottom: 8px; }
+  .photo-wheel__heading h2 { font-size: 42px; line-height: 1.08; margin-bottom: 6px; }
+  .photo-wheel__heading p { font-size: .85rem; line-height: 1.2; margin-bottom: 6px; }
+  .photo-wheel__ornament { height: 14px; }
+  .photo-wheel__canvas { margin-top: 13cqw; }
+  .photo-wheel__controls { margin-top: 8px; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .photo-wheel__photo, .photo-wheel__disk { transition: none; }
+  .photo-wheel__photo, .photo-wheel__disk, .photo-wheel__number, .photo-wheel__progress-fill { transition: none; }
   .photo-card-backdrop, .photo-card { animation: none !important; }
 }

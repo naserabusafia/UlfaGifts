@@ -1,24 +1,39 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { validate } from 'class-validator';
 import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
 import { OrdersService } from '../orders/orders.service';
+import { StorageService } from '../storage/storage.service';
 import { ItemContent } from './entities/item-content.entity';
 import { ItemMedia, MediaType } from './entities/item-media.entity';
 import { Section } from './entities/section.entity';
-import { ThemeSectionContent } from './entities/theme-section-content.entity';
+import { OccasionSection } from './entities/occasion-section.entity';
+import { OccasionSectionContent } from './entities/occasion-section-content.entity';
+import { Theme } from './entities/theme.entity';
+import { ThemeOccasion } from './entities/theme-occasion.entity';
 import {
   DEFAULT_NFC_LANGUAGE,
+  DEFAULT_NFC_OCCASION,
   DEFAULT_NFC_THEME,
   NfcItem,
   ViewerAuthType,
 } from './entities/nfc-item.entity';
 import { NfcItemsService } from './nfc-items.service';
 import { VerifyViewerPasswordDto } from './dto/verify-viewer-password.dto';
+import {
+  normalizeViewerSecret,
+  viewerSecretProblem,
+} from './utils/viewer-secret.util';
 
 describe('NfcItemsService public viewer access', () => {
   const storedItem = () =>
     ({
+      id: 'item-1',
       nfcId: 'test-tag',
       viewerAuthType: ViewerAuthType.PIN,
       viewerAuthPrompt: 'Our date?',
@@ -35,18 +50,154 @@ describe('NfcItemsService public viewer access', () => {
       findOne: jest
         .fn()
         .mockImplementation(() => Promise.resolve(storedItem())),
+      update: jest.fn().mockResolvedValue(undefined),
     };
-    const texts = { find: jest.fn().mockResolvedValue([]) };
+    const texts = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    const themes = { find: jest.fn().mockResolvedValue([]) };
+    const occasions = { findOne: jest.fn().mockResolvedValue(null) };
+    const occasionSections = { find: jest.fn().mockResolvedValue([]) };
+    const orders = { findOne: jest.fn().mockResolvedValue({ id: 'order' }) };
+    const storage = {
+      presignDownload: jest.fn((key: string) =>
+        Promise.resolve(`signed:${key}`),
+      ),
+      deleteMany: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new NfcItemsService(
       repository as unknown as Repository<NfcItem>,
       {} as Repository<ItemContent>,
       {} as Repository<ItemMedia>,
       {} as Repository<Section>,
-      texts as unknown as Repository<ThemeSectionContent>,
-      {} as OrdersService,
+      texts as unknown as Repository<OccasionSectionContent>,
+      themes as unknown as Repository<Theme>,
+      occasions as unknown as Repository<ThemeOccasion>,
+      occasionSections as unknown as Repository<OccasionSection>,
+      orders as unknown as OrdersService,
+      storage as unknown as StorageService,
     );
-    return { service, repository, texts };
+    return {
+      service,
+      storage,
+      repository,
+      texts,
+      themes,
+      occasions,
+      occasionSections,
+    };
   };
+
+  it('reads public section copy for the exact theme/occasion/language and active section only', async () => {
+    const { service, texts } = makeService();
+    texts.findOne.mockResolvedValue({
+      title: 'DB heading',
+      message: 'DB subtitle',
+      id: 'private-id',
+    });
+    await expect(
+      service.findPublicSectionText('luxury', 'romantic', 'ar', 'photo_wheel'),
+    ).resolves.toEqual({ title: 'DB heading', message: 'DB subtitle' });
+    expect(texts.findOne).toHaveBeenCalledWith({
+      where: {
+        language: 'ar',
+        section: { key: 'photo_wheel', isActive: true },
+        occasion: { key: 'romantic', theme: { key: 'luxury' } },
+      },
+    });
+  });
+
+  it('does not inject fallback text when a database translation is missing', async () => {
+    const { service } = makeService();
+    await expect(
+      service.findPublicSectionText('luxury', 'romantic', 'en', 'voice_note'),
+    ).resolves.toEqual({ title: null, message: null });
+  });
+
+  it('lists active themes with their active occasions only', async () => {
+    const { service, themes } = makeService();
+    themes.find.mockResolvedValue([
+      {
+        key: 'casual',
+        name: 'Casual',
+        occasions: [
+          { key: 'friendship', name: 'Friendship', isActive: true },
+          { key: 'birthday', name: 'Birthday', isActive: true },
+          { key: 'retired', name: 'Retired', isActive: false },
+        ],
+      },
+    ]);
+    await expect(service.findPublicThemes()).resolves.toEqual([
+      {
+        key: 'casual',
+        name: 'Casual',
+        occasions: [
+          { key: 'birthday', name: 'Birthday' },
+          { key: 'friendship', name: 'Friendship' },
+        ],
+      },
+    ]);
+    expect(themes.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { isActive: true } }),
+    );
+  });
+
+  it('creates an item on the requested occasion with its default sections', async () => {
+    const { service, repository, occasions, occasionSections } = makeService();
+    const occasion = {
+      id: 'occ-birthday',
+      key: 'birthday',
+      theme: { key: 'casual' },
+    };
+    repository.findOne.mockResolvedValue(null);
+    Object.assign(repository, {
+      create: jest.fn((data: object) => data),
+      save: jest.fn((data: object) => Promise.resolve({ ...data })),
+    });
+    occasions.findOne.mockResolvedValue(occasion);
+    occasionSections.find.mockResolvedValue([
+      { sectionId: 'wheel', displayOrder: 1 },
+      { sectionId: 'film', displayOrder: 2 },
+    ]);
+    const saved = await service.create({
+      orderId: 'order',
+      productName: 'Card',
+      nfcId: 'new-tag',
+      theme: 'casual',
+      occasion: 'birthday',
+    } as never);
+    expect(occasions.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          key: 'birthday',
+          isActive: true,
+          theme: { key: 'casual', isActive: true },
+        },
+      }),
+    );
+    expect(saved).toMatchObject({
+      occasion,
+      itemSections: [
+        { sectionId: 'wheel', displayOrder: 1, isVisible: true },
+        { sectionId: 'film', displayOrder: 2, isVisible: true },
+      ],
+    });
+  });
+
+  it('rejects an occasion that the theme does not offer', async () => {
+    const { service, repository } = makeService();
+    repository.findOne.mockResolvedValue(null);
+    await expect(
+      service.create({
+        orderId: 'order',
+        productName: 'Card',
+        nfcId: 'new-tag',
+        theme: 'casual',
+        occasion: 'romantic',
+      } as never),
+    ).rejects.toThrow(BadRequestException);
+  });
 
   it('returns the question, auth type, and safe appearance defaults without content', async () => {
     const { service } = makeService();
@@ -54,7 +205,10 @@ describe('NfcItemsService public viewer access', () => {
       nfcId: 'test-tag',
       viewerAuthType: ViewerAuthType.PIN,
       viewerAuthPrompt: 'Our date?',
+      preparing: false,
+      encryption: null,
       theme: DEFAULT_NFC_THEME,
+      occasion: DEFAULT_NFC_OCCASION,
       language: DEFAULT_NFC_LANGUAGE,
     });
   });
@@ -63,14 +217,15 @@ describe('NfcItemsService public viewer access', () => {
     const { service, repository } = makeService();
     repository.findOne.mockResolvedValue({
       ...storedItem(),
-      theme: 'midnight',
+      occasion: { key: 'birthday', theme: { key: 'casual' } },
       language: 'ar',
     });
 
     await expect(
       service.findPublicChallenge('test-tag'),
     ).resolves.toMatchObject({
-      theme: 'midnight',
+      theme: 'casual',
+      occasion: 'birthday',
       language: 'ar',
     });
   });
@@ -103,7 +258,6 @@ describe('NfcItemsService public viewer access', () => {
           ...storedItem(),
           viewerAuthType: type,
           viewerPasswordHash: createHash('sha256').update(answer).digest('hex'),
-          theme: 'romantic',
           language: 'ar',
           content: {
             title: 'عنوان الرسالة',
@@ -189,7 +343,7 @@ describe('NfcItemsService public viewer access', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('orders visible sections/photos and loads text for the exact item theme and language', async () => {
+  it('orders visible sections/photos and loads text for the exact item occasion and language', async () => {
     const { service, repository, texts } = makeService();
     const wheel = {
       id: 'wheel',
@@ -205,7 +359,8 @@ describe('NfcItemsService public viewer access', () => {
     };
     repository.findOne.mockResolvedValue({
       ...storedItem(),
-      theme: 'DEFAULT',
+      occasionId: 'occ-romantic',
+      occasion: { key: 'romantic', theme: { key: 'luxury' } },
       language: 'ar',
       itemSections: [
         {
@@ -276,8 +431,9 @@ describe('NfcItemsService public viewer access', () => {
       'last',
     ]);
     expect(texts.find.mock.calls[0][0] as unknown).toMatchObject({
-      where: { theme: 'DEFAULT', language: 'ar' },
+      where: { occasionId: 'occ-romantic', language: 'ar' },
     });
+    expect(result).toMatchObject({ theme: 'luxury', occasion: 'romantic' });
   });
 
   it('exposes the legacy wheel without an order but never re-enables an explicitly hidden wheel', async () => {
@@ -323,5 +479,144 @@ describe('NfcItemsService public viewer access', () => {
     expect(
       (await service.verifyViewerPassword('test-tag', '1234')).sections,
     ).toHaveLength(0);
+  });
+
+  describe('viewer secrets', () => {
+    const tooMany = expect.objectContaining({ status: 429 });
+
+    it('checks bcrypt hashes against the normalized answer', async () => {
+      const { service, repository } = makeService();
+      repository.findOne.mockResolvedValue({
+        ...storedItem(),
+        viewerAuthType: ViewerAuthType.TEXT,
+        viewerPasswordHash: await bcrypt.hash('اول لقاء في عمان', 4),
+      });
+      await expect(
+        service.verifyViewerPassword('test-tag', '  أوّل   لقاء في عمّان '),
+      ).resolves.toMatchObject({ content: { message: 'secret' } });
+      await expect(
+        service.verifyViewerPassword('test-tag', 'غلط'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('accepts Arabic-Indic digits for a PIN', async () => {
+      const { service, repository } = makeService();
+      repository.findOne.mockResolvedValue({
+        ...storedItem(),
+        viewerPasswordHash: await bcrypt.hash('482915', 4),
+      });
+      await expect(
+        service.verifyViewerPassword('test-tag', '٤٨٢٩١٥'),
+      ).resolves.toBeDefined();
+    });
+
+    it('upgrades a legacy SHA-256 hash to bcrypt on a correct answer', async () => {
+      const { service, repository } = makeService();
+      await service.verifyViewerPassword('test-tag', '1234');
+      const [id, patch] = repository.update.mock.calls[0];
+      expect(id).toBe('item-1');
+      expect(await bcrypt.compare('1234', patch.viewerPasswordHash)).toBe(true);
+    });
+
+    it('locks the item after 5 wrong answers and resets after a correct one', async () => {
+      const { service, repository } = makeService();
+      repository.findOne.mockResolvedValue({
+        ...storedItem(),
+        failedAttempts: 4,
+      });
+      await expect(
+        service.verifyViewerPassword('test-tag', '0000'),
+      ).rejects.toEqual(tooMany);
+      const patch = repository.update.mock.calls[0][1];
+      expect(patch.failedAttempts).toBe(5);
+      expect(patch.lockedUntil.getTime()).toBeGreaterThan(
+        Date.now() + 14 * 60_000,
+      );
+
+      // Even the right answer is refused while locked.
+      repository.findOne.mockResolvedValue({
+        ...storedItem(),
+        failedAttempts: 5,
+        lockedUntil: patch.lockedUntil,
+      });
+      await expect(
+        service.verifyViewerPassword('test-tag', '1234'),
+      ).rejects.toEqual(tooMany);
+
+      // After the lock expires the right answer works and clears the count.
+      repository.update.mockClear();
+      repository.findOne.mockResolvedValue({
+        ...storedItem(),
+        failedAttempts: 5,
+        lockedUntil: new Date(Date.now() - 1000),
+      });
+      const result = await service.verifyViewerPassword('test-tag', '1234');
+      expect(repository.update).toHaveBeenLastCalledWith('item-1', {
+        failedAttempts: 0,
+        lockedUntil: null,
+      });
+      expect(result).not.toHaveProperty('failedAttempts');
+      expect(result).not.toHaveProperty('lockedUntil');
+    });
+
+    it('counts again from one after an expired lock', async () => {
+      const { service, repository } = makeService();
+      repository.findOne.mockResolvedValue({
+        ...storedItem(),
+        failedAttempts: 5,
+        lockedUntil: new Date(Date.now() - 1000),
+      });
+      await expect(
+        service.verifyViewerPassword('test-tag', '0000'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.update.mock.calls[0][1]).toEqual({
+        failedAttempts: 1,
+        lockedUntil: null,
+      });
+    });
+
+    it('stores new PINs as bcrypt and rejects short or obvious ones', async () => {
+      const { service, repository, occasions } = makeService();
+      repository.findOne.mockResolvedValue(null);
+      Object.assign(repository, {
+        create: jest.fn((data: object) => data),
+        save: jest.fn((data: object) => Promise.resolve({ ...data })),
+      });
+      occasions.findOne.mockResolvedValue({ id: 'occ' });
+      const create = (viewerPassword: string) =>
+        service.create({
+          orderId: 'order',
+          productName: 'Card',
+          nfcId: 'new-tag',
+          viewerAuthType: ViewerAuthType.PIN,
+          viewerPassword,
+        } as never);
+
+      for (const weak of ['1234', '000000', '123456', '987654']) {
+        await expect(create(weak)).rejects.toThrow(BadRequestException);
+      }
+      await create('٤٨٢٩١٥');
+      const saved = (repository as unknown as { create: jest.Mock }).create.mock
+        .calls[0][0];
+      expect(await bcrypt.compare('482915', saved.viewerPasswordHash)).toBe(
+        true,
+      );
+    });
+
+    it.each([
+      [ViewerAuthType.DATE, '2020-2-9', '2020-02-09'],
+      [ViewerAuthType.TEXT, 'Hello   WORLD', 'hello world'],
+      [ViewerAuthType.TEXT, 'مدرسةُ الهُدى', 'مدرسه الهدي'],
+      [ViewerAuthType.PIN, '١٢ ٣٤٥٧', '123457'],
+    ])('normalizes %s "%s"', (type, raw, expected) => {
+      expect(normalizeViewerSecret(type, raw)).toBe(expected);
+    });
+
+    it('rejects impossible dates', () => {
+      expect(viewerSecretProblem(ViewerAuthType.DATE, '2021-02-29')).not.toBe(
+        null,
+      );
+      expect(viewerSecretProblem(ViewerAuthType.DATE, '2020-02-29')).toBe(null);
+    });
   });
 });

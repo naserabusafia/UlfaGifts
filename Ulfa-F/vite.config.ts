@@ -16,4 +16,12 @@ export default defineConfig({
   server: {
     allowedHosts: true,
   },
+
+  // The WebP encoder ships its own .wasm next to the module.
+  optimizeDeps: {
+    exclude: ['@jsquash/webp'],
+  },
+  worker: {
+    format: 'es',
+  },
 })

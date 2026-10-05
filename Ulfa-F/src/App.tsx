@@ -13,7 +13,7 @@ const AppContent: React.FC = () => {
   const { i18n } = useTranslation();
   const { isAuthenticated, user } = useAuth();
   const isAuthPage = location.pathname === '/login';
-  const isNfcPage = /^\/nfc\/[^/]+\/?$/.test(location.pathname);
+  const isNfcPage = /^\/(nfc|setup)\/[^/]+\/?$/.test(location.pathname);
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'ar' ? 'en' : 'ar';

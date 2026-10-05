@@ -6,7 +6,10 @@ import { ItemMedia } from './entities/item-media.entity';
 import { ItemSection } from './entities/item-section.entity';
 import { NfcItem } from './entities/nfc-item.entity';
 import { Section } from './entities/section.entity';
-import { ThemeSectionContent } from './entities/theme-section-content.entity';
+import { OccasionSection } from './entities/occasion-section.entity';
+import { OccasionSectionContent } from './entities/occasion-section-content.entity';
+import { Theme } from './entities/theme.entity';
+import { ThemeOccasion } from './entities/theme-occasion.entity';
 import {
   NfcItemsController,
   PublicNfcItemsController,
@@ -22,7 +25,10 @@ import { NfcItemsService } from './nfc-items.service';
       ItemMedia,
       Section,
       ItemSection,
-      ThemeSectionContent,
+      Theme,
+      ThemeOccasion,
+      OccasionSection,
+      OccasionSectionContent,
     ]),
     OrdersModule,
     AuthModule,

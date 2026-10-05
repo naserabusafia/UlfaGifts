@@ -1,133 +1,156 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { ExperienceMedia, ExperienceSection } from '../types/experience';
 import { useHorizontalDrag } from '../hooks/useHorizontalDrag';
-import { PHOTO_CLICK_BEHAVIOR, WHEEL_STEP, wheelSlot, wrapIndex } from '../utils/wheel';
+import { useCircularDrag } from '../hooks/useCircularDrag';
+import { ACTIVE_SCALE, CLICK_MODE, DIAMETER_RATIO, HINT_DELAY_MS, HINT_PAUSE_MS, HOLE_RATIO,
+  MAX_DIAMETER, NUMBER_RADIUS_RATIO, PHOTO_SIZE_RATIO, PILE_MIN_SCALE, PILE_RADIUS_RATIO,
+  PILE_SIZE_RATIO, SLOT_ANGLE, TRANSITION_EASING, TRANSITION_MS, VISIBLE_COUNT,
+  pileWindow, seededPose, signedOffset, wheelSlot, wheelWindow, wrapIndex } from '../utils/wheel';
+import SectionOrnament from './SectionOrnament';
 import './photo-wheel.css';
+import './memory-sections.css';
 
-type Props = { section: ExperienceSection; language: 'ar' | 'en' };
-type WheelStyle = CSSProperties & { '--slot-angle'?: string; '--disk-angle'?: string };
+// centerAction: optional control placed in the disk's center hole (the setup editor's "+").
+type Props = { section: ExperienceSection; language: 'ar' | 'en'; centerAction?: React.ReactNode };
+type ReelStyle = CSSProperties & Record<`--${string}`, string | number>;
+type CardPosition = { index: number; offset?: number; depth?: number };
 
-function WheelPhoto({ photo, index, count, activeIndex, dragSteps, onClick, label, buttonRef }: {
-  photo: ExperienceMedia; index: number; count: number; activeIndex: number; dragSteps: number;
-  onClick: () => void; label: string; buttonRef: (node: HTMLButtonElement | null) => void;
+function ReelPhoto({ photo, position, pileCount, active, dragAngle, format, onClick, buttonRef, label }: {
+  photo: ExperienceMedia; position: CardPosition; pileCount: number; active: number; dragAngle: number;
+  format: (number: number) => string; onClick: () => void; buttonRef: (node: HTMLButtonElement | null) => void; label: string;
 }) {
-  const slot = wheelSlot(index, activeIndex, count, dragSteps);
-  const node = useRef<HTMLButtonElement>(null);
-  const previousAngle = useRef(slot.angle);
-  useLayoutEffect(() => {
-    const button = node.current;
-    const wrapped = Math.abs(previousAngle.current - slot.angle) > 180;
-    previousAngle.current = slot.angle;
-    if (!button) return;
-    button.style.transition = '';
-    button.style.opacity = slot.visible ? '1' : '0';
-    if (!wrapped) return;
-    // Hide only the wrap seam at the compressed bottom, then fade back in.
-    button.style.transition = 'none';
-    button.style.opacity = '0';
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => {
-        button.style.transition = '';
-        button.style.opacity = slot.visible ? '1' : '0';
-      });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [slot.angle, slot.visible]);
-
-  return <button type="button" className={`photo-wheel__photo${index === activeIndex ? ' is-active' : ''}`}
-    ref={(button) => { node.current = button; buttonRef(button); }}
-    style={{ transform: `rotate(${slot.angle}deg) translateY(calc(-1 * var(--wheel-radius) - ${slot.lift}px)) scale(${slot.scale})`,
-      opacity: slot.visible ? 1 : 0, zIndex: count + 2 - Math.round(Math.abs(slot.offset)),
-      pointerEvents: slot.visible ? 'auto' : 'none' }}
-    aria-label={label} aria-current={index === activeIndex ? 'true' : undefined}
-    data-photo-index={index}
-    aria-hidden={!slot.visible} tabIndex={index === activeIndex ? 0 : -1}
-    onClick={onClick}>
+  const pile = position.depth !== undefined;
+  const depth = position.depth ?? 0;
+  const fraction = pileCount > 1 ? depth / (pileCount - 1) : 0;
+  const pose = seededPose(photo.id);
+  const slot = wheelSlot(position.offset ?? 0, dragAngle);
+  const pileSize = PHOTO_SIZE_RATIO * PILE_SIZE_RATIO;
+  const scale = pile ? PILE_SIZE_RATIO * (1 - (1 - PILE_MIN_SCALE) * fraction) : slot.scale;
+  const angle = pile ? pose.angle : slot.angle;
+  const x = pile ? pose.x * pileSize : slot.x;
+  const y = pile ? PILE_RADIUS_RATIO + pose.y * pileSize : slot.y;
+  const isActive = !pile && position.index === active;
+  return <button type="button" className={`photo-wheel__photo${pile ? ' is-pile' : ' is-slot'}${isActive ? ' is-active' : ''}`}
+    ref={buttonRef} data-photo-index={position.index} data-pile-depth={pile ? depth : undefined}
+    style={{ transform: `translate(${x * 100}cqw, ${y * 100}cqw) rotate(${angle}deg) scale(${scale})`,
+      zIndex: pile ? 40 - depth : isActive ? 80 : 60 - Math.abs(position.offset ?? 0),
+      '--photo-brightness': pile ? 1 - .15 * fraction : 1,
+      boxShadow: pile ? '0 3px 8px #10102045' : `0 ${3 + slot.emphasis * 10}px ${8 + slot.emphasis * 20}px #10102050` } as ReelStyle}
+    aria-label={label} aria-current={isActive ? 'true' : undefined}
+    tabIndex={isActive || (pile && depth === 0) ? 0 : -1} onClick={onClick}>
     <img src={photo.thumbnailUrl || photo.url} alt="" draggable="false"
-      loading={slot.visible ? 'eager' : 'lazy'} decoding="async" />
-    <span className="photo-wheel__number" aria-hidden="true">{index + 1}</span>
+      loading={!pile || depth < 3 ? 'eager' : 'lazy'} decoding="async" />
+    {pile && depth === 0 && <span className="photo-wheel__pile-accessible">{format(position.index + 1)}</span>}
   </button>;
 }
 
-export default function PhotoWheel({ section, language }: Props) {
+function ReelDisk({ angle, maskId }: { angle: number; maskId: string }) {
+  return <svg className="photo-wheel__disk" viewBox="0 0 100 100" aria-hidden="true"
+    style={{ transform: `rotate(${angle}deg)` }}>
+    <defs>
+      <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+        <circle cx="50" cy="50" r="50" fill="white" />
+        <circle cx="50" cy="50" r={HOLE_RATIO * 50} fill="black" />
+        {Array.from({ length: 8 }, (_, i) => <rect key={i} x="48" y="-.3" width="4" height="3.3"
+          fill="black" transform={`rotate(${22.5 + i * SLOT_ANGLE} 50 50)`} />)}
+      </mask>
+      <filter id={`${maskId}-grain`} x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch" />
+        <feColorMatrix type="saturate" values="0" />
+      </filter>
+      <radialGradient id={`${maskId}-edge`}>
+        <stop offset="88%" stopColor="#443e38" stopOpacity="0" />
+        <stop offset="100%" stopColor="#443e38" stopOpacity=".12" />
+      </radialGradient>
+    </defs>
+    <g mask={`url(#${maskId})`}>
+      <circle cx="50" cy="50" r="50" fill="#E4DDD3" />
+      <circle cx="50" cy="50" r="50" filter={`url(#${maskId}-grain)`} opacity=".075" />
+      <circle cx="50" cy="50" r="50" fill={`url(#${maskId}-edge)`} />
+      <circle cx="50" cy="50" r={HOLE_RATIO * 50 + .4} fill="none" stroke="#19172b" strokeOpacity=".22" strokeWidth=".8" />
+    </g>
+  </svg>;
+}
+
+export default function PhotoWheel({ section, language, centerAction }: Props) {
   const { t } = useTranslation(undefined, { lng: language });
   const headingId = useId();
-  const photos = useMemo(() => [...(section.media ?? [])]
-    .filter((m) => m.mediaType === 'IMAGE' && m.url)
+  const maskId = `reel-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const photos = useMemo(() => [...(section.media ?? [])].filter((m) => m.mediaType === 'IMAGE' && m.url)
     .sort((a, b) => a.displayOrder - b.displayOrder), [section.media]);
+  const numberFormat = useMemo(() => new Intl.NumberFormat(language), [language]);
+  const format = (number: number) => numberFormat.format(number);
   const [activeIndex, setActiveIndex] = useState(0);
   const [diskAngle, setDiskAngle] = useState(0);
   const [dialog, setDialog] = useState<'closed' | 'open' | 'closing'>('closed');
-  const wheelRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  const headingRef = useRef<HTMLElement>(null);
+  const wheelRef = useRef<HTMLDivElement>(null);
   const photoButtons = useRef(new Map<number, HTMLButtonElement>());
-  const returnFocus = useRef<HTMLElement | null>(null);
+  const openerIndex = useRef(0);
   const closeButton = useRef<HTMLButtonElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef(0);
-  const [spacing, setSpacing] = useState(80);
-  const [wheelMaxWidth, setWheelMaxWidth] = useState<number | null>(null);
+  const hint = useRef({ seen: false, cancelled: false, timers: [] as number[] });
   const active = wrapIndex(activeIndex, photos.length);
   const selection = useRef({ active, count: photos.length });
   const photo = photos[active];
   const isOpen = dialog !== 'closed';
+  const remaining = Math.max(0, photos.length - VISIBLE_COUNT);
 
+  const cancelHint = useCallback(() => {
+    hint.current.cancelled = true;
+    hint.current.timers.forEach(window.clearTimeout);
+    hint.current.timers = [];
+  }, []);
   const rotate = useCallback((delta: number) => {
-    if (photos.length < 2) return;
+    if (photos.length < 2 || !delta) return;
     setActiveIndex((current) => wrapIndex(current + delta, photos.length));
-    setDiskAngle((current) => current - delta * WHEEL_STEP);
+    setDiskAngle((current) => current - delta * SLOT_ANGLE);
   }, [photos.length]);
   useEffect(() => { selection.current = { active, count: photos.length }; }, [active, photos.length]);
   const close = useCallback(() => {
     if (closeTimer.current) return;
-    const openerIndex = Number(returnFocus.current?.dataset.photoIndex);
     const current = selection.current;
-    if (Number.isFinite(openerIndex) && current.count) {
-      const slot = wheelSlot(openerIndex, current.active, current.count);
-      // Bring an opener out of the compressed stack before returning focus.
-      if (slot.scale < 0.55) rotate(slot.offset);
+    if (current.count && Math.abs(signedOffset(openerIndex.current, current.active, current.count)) > 3) {
+      rotate(signedOffset(openerIndex.current, current.active, current.count));
     }
     setDialog('closing');
-    closeTimer.current = window.setTimeout(() => {
-      setDialog('closed');
-      closeTimer.current = 0;
-    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180);
+    closeTimer.current = window.setTimeout(() => { setDialog('closed'); closeTimer.current = 0; },
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180);
   }, [rotate]);
-  const wheelDrag = useHorizontalDrag((dx) => rotate(-Math.round(dx / spacing)));
+  const wheelDrag = useCircularDrag(rotate);
+  const liveSteps = wheelDrag.dragging && photos.length > 1 ? -Math.round(wheelDrag.rotation / SLOT_ANGLE) : 0;
+  const visualActive = wrapIndex(active + liveSteps, photos.length);
+  const dragAngle = wheelDrag.rotation + liveSteps * SLOT_ANGLE;
+  const slots = wheelWindow(visualActive, photos.length);
+  const pile = pileWindow(visualActive, photos.length);
+  const positions: CardPosition[] = [...slots, ...pile];
   const cardDrag = useHorizontalDrag((dx) => { if (Math.abs(dx) > 35) rotate(dx < 0 ? 1 : -1); });
+  const openPhoto = (index = active) => {
+    cancelHint();
+    openerIndex.current = index;
+    rotate(signedOffset(index, active, photos.length));
+    setDialog('open');
+  };
 
   useEffect(() => {
-    const wheel = wheelRef.current;
-    const section = sectionRef.current;
-    const heading = headingRef.current;
-    if (!wheel || !section || !heading) return;
-    const measure = () => {
-      const styles = getComputedStyle(section);
-      const headingStyles = getComputedStyle(heading);
-      const availableHeight = window.innerHeight - heading.getBoundingClientRect().height
-        - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom)
-        - parseFloat(headingStyles.marginBottom);
-      setWheelMaxWidth(Math.max(160, Math.floor(availableHeight / 1.2)));
-      setSpacing(Math.max(55, Math.min(130, wheel.getBoundingClientRect().width * 0.18)));
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(wheel);
-    observer.observe(heading);
-    observer.observe(section);
-    window.addEventListener('resize', measure);
-    measure();
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, []);
+    const node = sectionRef.current;
+    if (!node || photos.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const state = hint.current;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || entry.intersectionRatio < .5 || state.seen || state.cancelled) return;
+      state.seen = true;
+      state.timers.push(window.setTimeout(() => { if (!state.cancelled) rotate(2); }, HINT_DELAY_MS));
+      state.timers.push(window.setTimeout(() => { if (!state.cancelled) rotate(-2); }, HINT_DELAY_MS + TRANSITION_MS + HINT_PAUSE_MS));
+    }, { threshold: .5 });
+    observer.observe(node);
+    return () => { observer.disconnect(); state.timers.forEach(window.clearTimeout); state.timers = []; };
+  }, [rotate, photos.length]);
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
-
   useEffect(() => {
     if (!isOpen || !photos.length) return;
     [active - 1, active, active + 1].forEach((index) => {
@@ -137,11 +160,11 @@ export default function PhotoWheel({ section, language }: Props) {
       void image.decode().catch(() => undefined);
     });
   }, [active, isOpen, photos]);
-
   useEffect(() => {
     if (!isOpen) return;
     const bodyOverflow = document.body.style.overflow;
     const rootOverflow = document.documentElement.style.overflow;
+    const buttons = photoButtons.current;
     const wheel = wheelRef.current;
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
@@ -153,8 +176,7 @@ export default function PhotoWheel({ section, language }: Props) {
       }
       if (event.key === 'Tab') {
         const controls = [...(cardRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
-        const first = controls[0];
-        const last = controls.at(-1);
+        const first = controls[0]; const last = controls.at(-1);
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }
@@ -169,71 +191,75 @@ export default function PhotoWheel({ section, language }: Props) {
       document.documentElement.style.overflow = rootOverflow;
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('focusin', keepFocus);
-      const target = returnFocus.current;
-      // A disconnected opener (e.g. removed data) falls back to the wheel.
-      if (target?.isConnected && target.getAttribute('aria-hidden') !== 'true') target.focus({ preventScroll: true });
-      else wheel?.focus({ preventScroll: true });
+      (buttons.get(openerIndex.current) ?? wheel)?.focus({ preventScroll: true });
     };
   }, [isOpen, close, rotate]);
 
   if (!photo) return null;
-  const prevLabel = t('photoWheel.previous');
-  const nextLabel = t('photoWheel.next');
+  const prevLabel = t('photoWheel.previous'); const nextLabel = t('photoWheel.next');
   return <section ref={sectionRef} className="photo-wheel" aria-labelledby={section.title ? headingId : undefined}
-    aria-label={section.title ? undefined : t('photoWheel.gallery')}>
-    <header ref={headingRef} className="photo-wheel__heading" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    aria-label={section.title ? undefined : t('photoWheel.gallery')}
+    onPointerDownCapture={cancelHint} onClickCapture={cancelHint} onKeyDownCapture={cancelHint}
+    style={{ '--reel-max': `${MAX_DIAMETER}px`, '--reel-width': `${DIAMETER_RATIO * 100}%`,
+      '--photo-size': `${PHOTO_SIZE_RATIO * 100}cqw`, '--active-scale': ACTIVE_SCALE,
+      '--reel-duration': `${TRANSITION_MS}ms`, '--reel-easing': TRANSITION_EASING } as ReelStyle}>
+    <header className="photo-wheel__heading" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {section.title && <h2 id={headingId}>{section.title}</h2>}
       {section.message && <p>{section.message}</p>}
-      <svg className="photo-wheel__ornament" viewBox="0 0 120 24" aria-hidden="true">
-        <path d="M2 12h34m48 0h34M42 12c9-16 14-10 18 0 4-10 9-16 18 0-9 16-14 10-18 0-4 10-9 16-18 0Z" />
-      </svg>
+      <SectionOrnament className="photo-wheel__ornament" />
     </header>
-    <div className={`photo-wheel__canvas${wheelDrag.distance ? ' is-dragging' : ''}`} dir="ltr"
-      ref={wheelRef} role="region" tabIndex={0} aria-label={t('photoWheel.gallery')}
-      style={wheelMaxWidth ? { maxWidth: wheelMaxWidth } : undefined}
-      {...wheelDrag.handlers}
-      onKeyDown={(event) => {
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-          event.preventDefault(); rotate(event.key === 'ArrowRight' ? 1 : -1);
-        }
-      }}>
-      <div className="photo-wheel__disk" aria-hidden="true"
-        style={{ '--disk-angle': `${diskAngle + (photos.length > 1 ? wheelDrag.distance / spacing * WHEEL_STEP : 0)}deg` } as WheelStyle}>
-        {Array.from({ length: 60 }, (_, index) => <i key={index} className="photo-wheel__notch"
-          style={{ '--slot-angle': `${index * 6}deg` } as WheelStyle} />)}
-        <span className="photo-wheel__hole" />
+    <div className="photo-wheel__frame" dir="ltr">
+      <div className={`photo-wheel__canvas${wheelDrag.dragging ? ' is-dragging' : ''}`} ref={wheelRef} dir="ltr"
+        role="region" tabIndex={0} aria-label={t('photoWheel.gallery')} {...wheelDrag.handlers}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault(); rotate(event.key === 'ArrowRight' ? 1 : -1);
+          } else if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); openPhoto(); }
+        }}>
+        <ReelDisk angle={diskAngle + wheelDrag.rotation} maskId={maskId} />
+        {remaining > 0 && <svg className="photo-wheel__progress" viewBox="0 0 100 100" aria-hidden="true" data-progress={(active + 1) / photos.length}>
+          <circle cx="50" cy="50" r="46" className="photo-wheel__progress-track" />
+          <circle cx="50" cy="50" r="46" pathLength="1" strokeDasharray="1" strokeDashoffset={1 - (active + 1) / photos.length}
+            className="photo-wheel__progress-fill" transform="rotate(-90 50 50)" />
+        </svg>}
+        {positions.map((position) => <ReelPhoto key={`${photos[position.index].id}${position.depth !== undefined && slots.some((slot) => slot.index === position.index) ? '-pile' : ''}`} photo={photos[position.index]}
+          position={position} pileCount={pile.length} active={visualActive} dragAngle={dragAngle} format={format}
+          buttonRef={(node) => { if (position.offset === undefined) return; if (node) photoButtons.current.set(position.index, node); else photoButtons.current.delete(position.index); }}
+          label={position.depth !== undefined ? t('photoWheel.more', { count: format(remaining) }) : t('photoWheel.photo', { number: format(position.index + 1), count: format(photos.length) })}
+          onClick={() => {
+            if (position.depth !== undefined) rotate(1);
+            else if (CLICK_MODE === 'open-any' || position.index === active) openPhoto(position.index);
+            else rotate(signedOffset(position.index, active, photos.length));
+          }} />)}
+        {slots.filter((slot) => slot.offset !== 0).map((slot) => <span key={photos[slot.index].id}
+          className="photo-wheel__number" aria-hidden="true" data-number-index={slot.index}
+          style={{ transform: `rotate(${slot.offset * SLOT_ANGLE + dragAngle}deg) translateY(-${NUMBER_RADIUS_RATIO * 100}cqw) translateX(3cqw)` }}>
+          {format(slot.index + 1)}
+        </span>)}
+        {centerAction && <div className="photo-wheel__center-action">{centerAction}</div>}
+        <span className="photo-wheel__marker" aria-hidden="true">V<svg viewBox="0 0 16 24"><path d="M8 23V2M3 8l5-6 5 6" /></svg></span>
+        {remaining > 0 && <button className="photo-wheel__pile-badge" type="button" onClick={() => rotate(1)}
+          aria-label={t('photoWheel.more', { count: format(remaining) })}>+{format(remaining)}</button>}
       </div>
-      <span className="photo-wheel__marker" aria-hidden="true">↑<span>V</span></span>
-      {photos.map((item, index) => <WheelPhoto key={item.id} photo={item} index={index} count={photos.length}
-        activeIndex={active} dragSteps={photos.length > 1 ? wheelDrag.distance / spacing : 0}
-        buttonRef={(node) => { if (node) photoButtons.current.set(index, node); else photoButtons.current.delete(index); }}
-        label={t('photoWheel.photo', { number: index + 1, count: photos.length })}
-        onClick={() => {
-          if (PHOTO_CLICK_BEHAVIOR === 'open-any' || index === active) {
-            returnFocus.current = photoButtons.current.get(index) ?? wheelRef.current;
-            rotate(wheelSlot(index, active, photos.length).offset);
-            setDialog('open');
-          } else rotate(wheelSlot(index, active, photos.length).offset);
-        }} />)}
-      <nav className="photo-wheel__controls" aria-label={t('photoWheel.navigation')}>
-        <button type="button" onClick={() => rotate(-1)} disabled={photos.length < 2} aria-label={prevLabel}><ChevronLeft /></button>
-        <span className="photo-wheel__counter" aria-live="polite" aria-atomic="true">{active + 1} / {photos.length}</span>
-        <button type="button" onClick={() => rotate(1)} disabled={photos.length < 2} aria-label={nextLabel}><ChevronRight /></button>
-      </nav>
     </div>
+    <nav className="photo-wheel__controls" dir="ltr" aria-label={t('photoWheel.navigation')}>
+      <button type="button" onClick={() => rotate(-1)} disabled={photos.length < 2} aria-label={prevLabel}><ChevronLeft /></button>
+      <span className="photo-wheel__counter" aria-live="polite" aria-atomic="true">{format(active + 1)} / {format(photos.length)}</span>
+      <button type="button" onClick={() => rotate(1)} disabled={photos.length < 2} aria-label={nextLabel}><ChevronRight /></button>
+    </nav>
     {isOpen && createPortal(<div className={`photo-card-backdrop${dialog === 'closing' ? ' is-closing' : ''}`}
       onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
       <div className="photo-card" ref={cardRef} role="dialog" aria-modal="true" lang={language}
-        aria-label={t('photoWheel.photo', { number: active + 1, count: photos.length })} dir="ltr">
+        aria-label={t('photoWheel.photo', { number: format(active + 1), count: format(photos.length) })} dir="ltr">
         <button ref={closeButton} className="photo-card__close" type="button" onClick={close} aria-label={t('photoWheel.close')}><X /></button>
         <figure {...cardDrag.handlers}>
-          <img src={photo.fullUrl || photo.url} alt={photo.caption || t('photoWheel.photo', { number: active + 1, count: photos.length })}
+          <img src={photo.fullUrl || photo.url} alt={photo.caption || t('photoWheel.photo', { number: format(active + 1), count: format(photos.length) })}
             decoding="async" draggable="false" />
           {photo.caption && <figcaption dir={language === 'ar' ? 'rtl' : 'ltr'}>{photo.caption}</figcaption>}
         </figure>
         <nav className="photo-card__controls" aria-label={t('photoWheel.navigation')}>
           <button type="button" onClick={() => rotate(-1)} disabled={photos.length < 2} aria-label={prevLabel}><ChevronLeft /></button>
-          <span aria-live="polite" aria-atomic="true">{active + 1} / {photos.length}</span>
+          <span>{format(active + 1)} / {format(photos.length)}</span>
           <button type="button" onClick={() => rotate(1)} disabled={photos.length < 2} aria-label={nextLabel}><ChevronRight /></button>
         </nav>
       </div>

@@ -386,11 +386,38 @@
     "backHome": "Return to Home"
   },
   "photoWheel": {
+    "more": "{{count}} more photos",
     "gallery": "Photo memories",
     "navigation": "Photo navigation",
     "previous": "Previous photo",
     "next": "Next photo",
     "close": "Close photo",
     "photo": "Photo {{number}} of {{count}}"
+  },
+  "memorySections": {
+    "voiceNote": "Voice note",
+    "voiceNotes": "Voice notes",
+    "voiceNumber": "Voice note {{number}}",
+    "play": "Play voice note",
+    "pause": "Pause voice note",
+    "position": "Voice note position",
+    "calendar": "Memory calendar",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
+    "showYear": "Whole year",
+    "showMonth": "Month view",
+    "monthCount": "Memories this month: {{count}}",
+    "monthEmpty": "No memories this month",
+    "yearCount": "Memories this year: {{count}}",
+    "memoryOn": "Memory on {{date}}",
+    "openMonth": "{{month}}, memories: {{count}}",
+    "film": "Film strip",
+    "playFilm": "Play the film",
+    "closeFilm": "Close film",
+    "theEnd": "The End",
+    "replay": "Watch again",
+    "scene": "Scene {{number}}"
   }
 }

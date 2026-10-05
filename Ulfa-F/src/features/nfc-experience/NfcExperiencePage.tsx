@@ -6,21 +6,42 @@ import PulseLogo from './PulseLogo';
 import ExperienceSections from './components/ExperienceSections';
 import type { ExperienceResponse, ExperienceSection } from './types/experience';
 import { demoSections } from './demo/sections';
+import { normalizeSecret } from './crypto/secret';
+import { decryptText, deriveSecretKeys, unwrapContentKey } from './crypto/keys';
+import { decryptSections, withFullImages } from './crypto/media';
 import sealImg from '../../components/EnvelopeLetter/seal.png';
 import envelopeTexture from '../../components/EnvelopeLetter/envelope-texture.jpg';
 import letterPaper from '../../components/EnvelopeLetter/letter-paper.webp';
 import '@fontsource/great-vibes/latin-400.css';
 import '@fontsource/cormorant-garamond/latin-400.css';
+import '@fontsource/cormorant-garamond/latin-700.css';
 import '@fontsource/cormorant-garamond/latin-700-italic.css';
+import './arabic-fonts.css';
 import './nfc-experience.css';
 
-const PIN_LENGTH = 4;
+const PIN_LENGTH = 6;
+const DEMO_PIN = '123456';
 const LOADER_MIN_MS = 1000; // just enough to confirm data is ready
 const REQUEST_TIMEOUT_MS = 15000;
 export type ViewerAuthType = 'NONE' | 'PIN' | 'DATE' | 'TEXT';
-type Challenge = { viewerAuthType: ViewerAuthType; viewerAuthPrompt?: string | null };
+type Challenge = {
+  viewerAuthType: ViewerAuthType; viewerAuthPrompt?: string | null;
+  // Set while the buyer is still preparing the gift.
+  preparing?: boolean;
+  // End-to-end encrypted items: the answer is turned into keys in the browser.
+  encryption?: { keySalt: string; kdfIterations: number } | null;
+};
 type WelcomeMessage = { title?: string | null; message?: string | null; signature?: string | null };
-type Appearance = { theme: string; language: string };
+type Appearance = { theme: string; occasion: string; language: string };
+/** An experience rendered from local data (the buyer's setup preview). */
+export type LocalExperience = {
+  challenge: Challenge; appearance: Appearance; letter: WelcomeMessage; sections: ExperienceSection[];
+  verify: (type: ViewerAuthType, answer: string) => Promise<boolean>;
+};
+const DEFAULT_THEME = 'luxury';
+const DEFAULT_OCCASION = 'romantic';
+const appearanceKey = (value: string | null, fallback: string) =>
+  value && /^[a-z0-9][a-z0-9-]*$/i.test(value) ? value.toLowerCase() : fallback;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 const years = Array.from({ length: 301 }, (_, index) => 1850 + index);
 
@@ -30,9 +51,11 @@ const viewerCopy = {
     continue: 'Continue to password', previousMonth: 'Previous month', nextMonth: 'Next month',
     chooseMonth: 'Choose month', chooseYear: 'Choose year', yourAnswer: 'Your answer',
     answerHint: 'Type the answer to the question above', answerPlaceholder: 'Write your answer here',
-    previewOnly: 'Demo PIN: 1234', unlocked: 'Unlocked',
+    previewOnly: `Demo PIN: ${DEMO_PIN}`, unlocked: 'Unlocked',
     previewAnswer: 'Demo: choose any date or enter any answer',
     loadError: 'Unable to load this message.', verifyError: 'Incorrect password. Please try again.',
+    tooManyAttempts: 'Too many wrong attempts. Please try again in 15 minutes.',
+    preparing: 'This gift is still being prepared. Come back soon.',
     retry: 'Try again', unavailable: 'This message is unavailable.',
     connectionError: 'Unable to connect. Please try again.',
     emptyMessage: 'This letter has no message yet.',
@@ -42,9 +65,11 @@ const viewerCopy = {
     continue: 'المتابعة إلى كلمة المرور', previousMonth: 'الشهر السابق', nextMonth: 'الشهر التالي',
     chooseMonth: 'اختر الشهر', chooseYear: 'اختر السنة', yourAnswer: 'إجابتك',
     answerHint: 'اكتب إجابة السؤال أعلاه', answerPlaceholder: 'اكتب إجابتك هنا',
-    previewOnly: 'رمز الديمو: 1234', unlocked: 'تم الفتح',
+    previewOnly: `رمز الديمو: ${DEMO_PIN}`, unlocked: 'تم الفتح',
     previewAnswer: 'للتجربة: اختر أي تاريخ أو اكتب أي إجابة',
     loadError: 'تعذر تحميل هذه الرسالة.', verifyError: 'كلمة المرور غير صحيحة. حاول مرة أخرى.',
+    tooManyAttempts: 'محاولات خاطئة كثيرة. حاول مرة أخرى بعد 15 دقيقة.',
+    preparing: 'هذه الهدية ما زالت قيد التجهيز. عُد قريبًا.',
     retry: 'حاول مرة أخرى', unavailable: 'هذه الرسالة غير متاحة.',
     connectionError: 'تعذر الاتصال. حاول مرة أخرى.',
     emptyMessage: 'لم تتم إضافة نص لهذه الرسالة بعد.',
@@ -88,20 +113,36 @@ export function NfcExperiencePage({ viewerAuthType = 'PIN' }: { viewerAuthType?:
     ? demoType as ViewerAuthType : viewerAuthType;
   const demoLanguage = searchParams.get('lang')?.startsWith('ar') ? 'ar' : 'en';
   const requestedCount = Number(searchParams.get('photos') || 30);
-  const demoPhotoCount = Number.isFinite(requestedCount) ? Math.max(0, Math.min(60, Math.floor(requestedCount))) : 30;
-  return <NfcExperience key={`${nfcId}:${demoAuth}:${demoLanguage}:${nfcId === 'demo' ? demoPhotoCount : ''}`}
-    nfcId={nfcId} demoAuth={demoAuth} demoLanguage={demoLanguage} demoPhotoCount={demoPhotoCount} />;
+  const demoPhotoCount = Number.isFinite(requestedCount) ? Math.max(0, Math.min(500, Math.floor(requestedCount))) : 30;
+  const demoTheme = appearanceKey(searchParams.get('theme'), DEFAULT_THEME);
+  const demoOccasion = appearanceKey(searchParams.get('occasion'), DEFAULT_OCCASION);
+  return <NfcExperience key={`${nfcId}:${demoAuth}:${demoLanguage}:${nfcId === 'demo' ? `${demoPhotoCount}:${demoTheme}:${demoOccasion}` : ''}`}
+    nfcId={nfcId} demoAuth={demoAuth} demoLanguage={demoLanguage} demoPhotoCount={demoPhotoCount}
+    demoTheme={demoTheme} demoOccasion={demoOccasion} />;
 }
 
-function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcId: string; demoAuth: ViewerAuthType; demoLanguage: 'ar' | 'en'; demoPhotoCount: number }) {
+/** The recipient experience driven by local data, for the setup preview. */
+export function NfcExperiencePreview({ experience }: { experience: LocalExperience }) {
+  const language = experience.appearance.language.startsWith('ar') ? 'ar' : 'en';
+  return <NfcExperience nfcId="preview" demoAuth={experience.challenge.viewerAuthType} demoLanguage={language}
+    demoPhotoCount={0} demoTheme={experience.appearance.theme} demoOccasion={experience.appearance.occasion}
+    local={experience} />;
+}
+
+function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount, demoTheme, demoOccasion, local }: {
+  nfcId: string; demoAuth: ViewerAuthType; demoLanguage: 'ar' | 'en'; demoPhotoCount: number; demoTheme: string; demoOccasion: string;
+  local?: LocalExperience;
+}) {
   const isDemo = nfcId === 'demo';
-  const [challenge, setChallenge] = useState<Challenge | null>(isDemo ? {
+  const [challenge, setChallenge] = useState<Challenge | null>(local ? local.challenge : isDemo ? {
     viewerAuthType: demoAuth,
     viewerAuthPrompt: demoLanguage === 'ar' ? 'ما هو سرّنا؟' : 'What is our secret?',
   } : null);
-  const [appearance, setAppearance] = useState<Appearance>({ theme: isDemo ? 'DEFAULT' : 'romantic', language: isDemo ? demoLanguage : 'en' });
+  const [appearance, setAppearance] = useState<Appearance>(local ? local.appearance : isDemo
+    ? { theme: demoTheme, occasion: demoOccasion, language: demoLanguage }
+    : { theme: DEFAULT_THEME, occasion: DEFAULT_OCCASION, language: 'en' });
   const [showSplash, setShowSplash] = useState(true);
-  const [dataReady, setDataReady] = useState(isDemo);
+  const [dataReady, setDataReady] = useState(isDemo || !!local);
   const [loadFailed, setLoadFailed] = useState(false);
   const [minElapsed, setMinElapsed] = useState(false);
   const [pin, setPin] = useState('');
@@ -111,12 +152,12 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
   const [status, setStatus] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [unlocked, setUnlocked] = useState(isDemo && demoAuth === 'NONE');
-  const [welcomeMessage, setWelcomeMessage] = useState<WelcomeMessage | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState<WelcomeMessage | null>(local?.letter ?? null);
   const [sections, setSections] = useState<ExperienceSection[]>(() =>
-    isDemo ? demoSections(demoLanguage, demoPhotoCount) : []);
+    local ? local.sections : isDemo ? demoSections(demoPhotoCount, demoLanguage) : []);
 
   useEffect(() => {
-    if (isDemo) return;
+    if (isDemo || local) return;
     let active = true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -131,7 +172,8 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
           throw new Error('Invalid challenge');
         }
         setChallenge(body.data);
-        setAppearance({ theme: body.data.theme || 'romantic', language: body.data.language || 'en' });
+        setAppearance({ theme: body.data.theme || DEFAULT_THEME, occasion: body.data.occasion || DEFAULT_OCCASION,
+          language: body.data.language || 'en' });
         if (body.data.viewerAuthType === 'NONE') {
           const response = await fetch(`${API_BASE_URL}/nfc-items/public/${encodeURIComponent(nfcId)}/verify`, {
             method: 'POST',
@@ -147,6 +189,7 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
           setSections(result.data.sections ?? []);
           setAppearance((current) => ({
             theme: result.data.theme || current.theme,
+            occasion: result.data.occasion || current.occasion,
             language: result.data.language || current.language,
           }));
           setUnlocked(true);
@@ -155,7 +198,7 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
       .catch(() => { if (active) setLoadFailed(true); })
       .finally(() => { window.clearTimeout(timeout); if (active) setDataReady(true); });
     return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
-  }, [isDemo, nfcId]);
+  }, [isDemo, local, nfcId]);
 
   useEffect(() => {
     const min = window.setTimeout(() => setMinElapsed(true), LOADER_MIN_MS);
@@ -206,8 +249,16 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
     const copy = viewerCopy[appearance.language.startsWith('ar') ? 'ar' : 'en'];
     const answer = authType === 'PIN' ? pin : authType === 'DATE' ? selectedDate : textAnswer;
     if (!answer || (authType === 'PIN' && answer.length !== PIN_LENGTH) || verifying) return;
+    if (local) {
+      setVerifying(true);
+      const matches = await local.verify(authType, answer).catch(() => false);
+      setVerifying(false);
+      if (matches) setUnlocked(true);
+      else { setStatus(copy.verifyError); if (authType === 'PIN') setPin(''); }
+      return;
+    }
     if (nfcId === 'demo') {
-      if (authType === 'PIN' && answer !== '1234') {
+      if (authType === 'PIN' && answer !== DEMO_PIN) {
         setStatus(viewerCopy[appearance.language.startsWith('ar') ? 'ar' : 'en'].verifyError);
         setPin('');
         return;
@@ -221,25 +272,45 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
     const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     let failureMessage: string = copy.connectionError;
     try {
+      // Encrypted gifts: send only the derived auth key; keep the unwrap key.
+      const keys = challenge.encryption
+        ? await deriveSecretKeys(normalizeSecret(authType as 'PIN' | 'DATE' | 'TEXT', answer),
+          challenge.encryption.keySalt, challenge.encryption.kdfIterations)
+        : null;
       const response = await fetch(`${API_BASE_URL}/nfc-items/public/${encodeURIComponent(nfcId)}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer }),
+        body: JSON.stringify({ answer: keys ? keys.authKey : answer }),
         signal: controller.signal,
       });
       if (!response.ok) {
         const error = await response.json().catch(() => null) as { message?: string } | null;
         failureMessage = response.status === 403
           ? error?.message === 'Incorrect password' ? copy.verifyError : copy.unavailable
+          : response.status === 429 ? copy.tooManyAttempts
           : response.status === 404 ? copy.unavailable : copy.connectionError;
         throw new Error('Verification failed');
       }
-      const body = await response.json() as { data: ExperienceResponse };
+      const body = await response.json() as { data: ExperienceResponse & { wrappedKey?: string | null;
+        content?: (WelcomeMessage & { isEncrypted?: boolean }) | null } };
       if (!body.data) throw new Error(copy.loadError);
-      setWelcomeMessage(body.data.content ?? null);
-      setSections(body.data.sections ?? []);
+      if (keys && body.data.wrappedKey) {
+        failureMessage = copy.loadError;
+        const contentKey = await unwrapContentKey(body.data.wrappedKey, keys.kek);
+        const content = body.data.content;
+        const plain = async (value?: string | null) => (value ? decryptText(contentKey, value) : null);
+        setWelcomeMessage(content?.isEncrypted
+          ? { title: await plain(content.title), message: await plain(content.message), signature: await plain(content.signature) }
+          : content ?? null);
+        setSections(await decryptSections(contentKey, body.data.sections ?? [],
+          (urls) => setSections((current) => withFullImages(current, urls))));
+      } else {
+        setWelcomeMessage(body.data.content ?? null);
+        setSections(body.data.sections ?? []);
+      }
       setAppearance((current) => ({
         theme: body.data.theme || current.theme,
+        occasion: body.data.occasion || current.occasion,
         language: body.data.language || current.language,
       }));
       setUnlocked(true);
@@ -250,7 +321,7 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
       window.clearTimeout(timeout);
       setVerifying(false);
     }
-  }, [appearance.language, challenge, loadFailed, nfcId, pin, selectedDate, showSplash, textAnswer, unlocked, verifying]);
+  }, [appearance.language, challenge, loadFailed, local, nfcId, pin, selectedDate, showSplash, textAnswer, unlocked, verifying]);
 
   useEffect(() => {
     if (showSplash || loadFailed || unlocked || verifying || challenge?.viewerAuthType !== 'PIN') return;
@@ -297,12 +368,14 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
         emptyMessage={copy.emptyMessage}
         language={language}
         theme={appearance.theme}
+        occasion={appearance.occasion}
       />
     );
   }
 
   return (
-    <main className={`nfc-intro nfc-intro--theme-${appearance.theme}`} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
+    <main className={`nfc-intro nfc-intro--theme-${appearance.theme}`} data-theme={appearance.theme}
+      data-occasion={appearance.occasion} dir={language === 'ar' ? 'rtl' : 'ltr'} lang={language}>
       <div className="nfc-intro__artboard">
         {showSplash ? (
           <section className="nfc-intro__splash" aria-label="Ulfa introduction">
@@ -321,6 +394,12 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount }: { nfcI
             <h1 className="nfc-intro__title">{copy.title}</h1>
             <p className="nfc-intro__subtitle" role="alert">{copy.loadError}</p>
             <button className="nfc-intro__panel-ok nfc-intro__retry" type="button" onClick={() => window.location.reload()}>{copy.retry}</button>
+          </section>
+        ) : challenge.preparing ? (
+          <section className="nfc-intro__password" aria-label={copy.preparing}>
+            <BrandMark />
+            <h1 className="nfc-intro__title">{copy.title}</h1>
+            <p className="nfc-intro__subtitle" role="status">{copy.preparing}</p>
           </section>
         ) : (
           <section className="nfc-intro__password" aria-label="Private message password">

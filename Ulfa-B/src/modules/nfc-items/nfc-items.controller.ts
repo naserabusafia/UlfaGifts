@@ -21,7 +21,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { CreateNfcItemDto } from './dto/create-nfc-item.dto';
 import { UpdateNfcItemDto } from './dto/update-nfc-item.dto';
 import { VerifyViewerPasswordDto } from './dto/verify-viewer-password.dto';
-import { UpsertThemeSectionContentDto } from './dto/upsert-theme-section-content.dto';
+import { UpsertOccasionSectionContentDto } from './dto/upsert-occasion-section-content.dto';
 import { MediaType } from './entities/item-media.entity';
 import { NfcItemsService } from './nfc-items.service';
 
@@ -80,9 +80,9 @@ export class NfcItemsController {
     );
   }
 
-  @Put('theme-section-contents')
-  upsertThemeSectionContent(@Body() dto: UpsertThemeSectionContentDto) {
-    return this.nfcItemsService.upsertThemeSectionContent(dto);
+  @Put('occasion-section-contents')
+  upsertOccasionSectionContent(@Body() dto: UpsertOccasionSectionContentDto) {
+    return this.nfcItemsService.upsertOccasionSectionContent(dto);
   }
 
   @Post(':id/media')
@@ -94,6 +94,7 @@ export class NfcItemsController {
     @Body('displayOrder') displayOrder: number,
     @Body('sectionId', ParseUUIDPipe) sectionId: string,
     @Body('caption') caption?: string,
+    @Body('memoryDate') memoryDate?: string,
   ) {
     return this.nfcItemsService.addMedia(
       id,
@@ -102,6 +103,7 @@ export class NfcItemsController {
       displayOrder,
       sectionId,
       caption,
+      memoryDate,
     );
   }
 
@@ -115,6 +117,27 @@ export class NfcItemsController {
 export class PublicNfcItemsController {
   constructor(private readonly nfcItemsService: NfcItemsService) {}
 
+  // Declared before public/:nfcId so "themes" is not read as an NFC id.
+  @Get('public/themes')
+  findPublicThemes() {
+    return this.nfcItemsService.findPublicThemes();
+  }
+
+  @Get('public/section-texts/:theme/:occasion/:language/:section')
+  findPublicSectionText(
+    @Param('theme') theme: string,
+    @Param('occasion') occasion: string,
+    @Param('language') language: string,
+    @Param('section') section: string,
+  ) {
+    return this.nfcItemsService.findPublicSectionText(
+      theme,
+      occasion,
+      language,
+      section,
+    );
+  }
+
   @Get('public/:nfcId')
   findPublicByNfcId(@Param('nfcId') nfcId: string) {
     return this.nfcItemsService.findPublicChallenge(nfcId);
@@ -127,10 +150,5 @@ export class PublicNfcItemsController {
     @Body() body: VerifyViewerPasswordDto,
   ) {
     return this.nfcItemsService.verifyViewerPassword(nfcId, body.answer);
-  }
-
-  @Get('edit-mode/:editToken')
-  findByEditToken(@Param('editToken', ParseUUIDPipe) editToken: string) {
-    return this.nfcItemsService.findByEditToken(editToken);
   }
 }

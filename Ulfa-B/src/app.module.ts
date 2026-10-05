@@ -4,17 +4,20 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
+import storageConfig from './config/storage.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { NfcItemsModule } from './modules/nfc-items/nfc-items.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { SetupModule } from './modules/setup/setup.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, storageConfig],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -31,11 +34,13 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
         logging: configService.get<boolean>('database.logging'),
       }),
     }),
+    StorageModule,
     AuthModule,
     UsersModule,
     OrdersModule,
     NfcItemsModule,
     IntegrationsModule,
+    SetupModule,
   ],
 })
 export class AppModule {}

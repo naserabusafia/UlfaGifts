@@ -1,7 +1,7 @@
 .el-stage{
   --bg:#ECDBD6;--env:#282749;--env-back:#212040;--paper:#F3EEE3;--ink:#262648;--wax:#7A1F2E;--muted:#5E5A7E;
   position:relative;box-sizing:border-box;min-height:100vh;min-height:100dvh;margin:0;
-  background:var(--bg);font-family:"Amiri",Georgia,"Times New Roman",serif;color:var(--ink);line-height:normal;
+  background:var(--bg);font-family:"Cormorant Garamond","IBM Plex Sans Arabic",Georgia,"Times New Roman",serif;color:var(--ink);line-height:normal;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5rem;
   padding:calc(10rem + env(safe-area-inset-top,0px)) 1rem calc(2rem + env(safe-area-inset-bottom,0px));overflow:hidden
 }
@@ -38,7 +38,7 @@ background:var(--paper-img) center/100% 100% no-repeat;filter:drop-shadow(0 6px 
 .el-big{position:relative;width:min(440px,90vw,calc((100vh - 8rem) * .696),calc((100dvh - 8rem) * .696));aspect-ratio:.696}
 .el-big-c{font-size:clamp(.9rem,2.9vw,1.12rem);overflow:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none;outline:none}
 .el-big-c::-webkit-scrollbar{display:none}
-.el-greet{font-family:"Reem Kufi",serif;color:var(--wax);font-size:1.3em}
+.el-greet{font-family:"Cormorant Garamond","El Messiri",serif;color:var(--wax);font-size:1.3em}
 .el-sign{text-align:left;font-style:italic;margin-top:1.4em!important}
 .el-mini-seal{width:52px;display:block;margin-inline-start:auto}
 .el-hint{margin:0;color:var(--muted);font-size:1.05rem}

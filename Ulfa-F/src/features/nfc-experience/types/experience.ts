@@ -6,6 +6,8 @@ export type ExperienceMedia = {
   thumbnailUrl?: string | null;
   fullUrl?: string | null;
   caption?: string | null;
+  /** YYYY-MM-DD day used by the memory calendar. */
+  memoryDate?: string | null;
   displayOrder: number;
 };
 export type ExperienceSection = SectionText & {
@@ -21,6 +23,7 @@ export type ExperienceContent = {
 };
 export type ExperienceResponse = {
   theme?: string;
+  occasion?: string;
   language?: string;
   content?: ExperienceContent | null;
   sections?: ExperienceSection[];

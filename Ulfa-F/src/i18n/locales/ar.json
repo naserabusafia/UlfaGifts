@@ -386,11 +386,38 @@
     "backHome": "العودة للرئيسية"
   },
   "photoWheel": {
+    "more": "{{count}} صور أخرى",
     "gallery": "صور الذكريات",
     "navigation": "تصفح الصور",
     "previous": "الصورة السابقة",
     "next": "الصورة التالية",
     "close": "إغلاق الصورة",
     "photo": "الصورة {{number}} من {{count}}"
+  },
+  "memorySections": {
+    "voiceNote": "رسالة صوتية",
+    "voiceNotes": "الرسائل الصوتية",
+    "voiceNumber": "رسالة صوتية {{number}}",
+    "play": "تشغيل الرسالة الصوتية",
+    "pause": "إيقاف الرسالة الصوتية",
+    "position": "موضع التشغيل",
+    "calendar": "تقويم الذكريات",
+    "previousMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "previousYear": "السنة السابقة",
+    "nextYear": "السنة التالية",
+    "showYear": "السنة كاملة",
+    "showMonth": "عرض الشهر",
+    "monthCount": "ذكريات هذا الشهر: {{count}}",
+    "monthEmpty": "لا توجد ذكريات في هذا الشهر",
+    "yearCount": "ذكريات هذه السنة: {{count}}",
+    "memoryOn": "ذكرى يوم {{date}}",
+    "openMonth": "{{month}}، الذكريات: {{count}}",
+    "film": "شريط الفيلم",
+    "playFilm": "شغّل الفيلم",
+    "closeFilm": "إغلاق الفيلم",
+    "theEnd": "النهاية",
+    "replay": "شاهده مرة أخرى",
+    "scene": "المشهد {{number}}"
   }
 }

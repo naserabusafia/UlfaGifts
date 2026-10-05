@@ -55,6 +55,14 @@ export class CreateNfcItemDto {
   theme?: string;
 
   @IsString()
+  @MaxLength(64)
+  @Matches(/^[a-z0-9][a-z0-9-]*$/i, {
+    message: 'Occasion must be a valid identifier',
+  })
+  @IsOptional()
+  occasion?: string;
+
+  @IsString()
   @MaxLength(16)
   @Matches(/^[a-z]{2,3}(?:-[A-Z]{2})?$/i, {
     message: 'Language must be a valid language tag',

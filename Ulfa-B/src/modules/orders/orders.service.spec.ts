@@ -57,6 +57,7 @@ const buildService = (merchant: User) => {
     {} as any,
     dataSource as any,
     configService as any,
+    {} as any,
   );
   return { service, manager, savedEntities };
 };
@@ -149,6 +150,7 @@ describe('OrdersService.createForMerchant', () => {
       {
         get: (_key: string, fallback: string) => fallback,
       } as any,
+      {} as any,
     );
 
     const result = await service.findOneForMerchant(
@@ -192,6 +194,7 @@ describe('OrdersService.createForMerchant', () => {
       {} as any,
       {} as any,
       { get: (_key: string, fallback: string) => fallback } as any,
+      {} as any,
     );
 
     const result = await service.updateMerchantStatus(
@@ -234,6 +237,7 @@ describe('OrdersService.createForMerchant', () => {
       {} as any,
       dataSource as any,
       { get: (_key: string, fallback: string) => fallback } as any,
+      {} as any,
     );
 
     const result = await service.updateMerchantNfcLock(

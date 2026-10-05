@@ -25,10 +25,16 @@ export class ItemContent {
   @Column({ type: 'varchar', nullable: true })
   signature?: string;
 
+  // title/message/signature hold ciphertext (base64) written by the browser.
+  @Column({ name: 'is_encrypted', default: false })
+  isEncrypted: boolean;
+
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @OneToOne(() => NfcItem, (nfcItem) => nfcItem.content, { onDelete: 'CASCADE' })
+  @OneToOne(() => NfcItem, (nfcItem) => nfcItem.content, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'item_id' })
   nfcItem?: NfcItem;
 }

@@ -3,6 +3,9 @@ import EnvelopeLetter from '../../../components/EnvelopeLetter/EnvelopeLetter';
 import type { ExperienceContent, ExperienceSection } from '../types/experience';
 import { orderedSections } from '../utils/sections';
 import PhotoWheel from './PhotoWheel';
+import VoiceNote from './VoiceNote';
+import MemoryCalendar from './MemoryCalendar';
+import FilmStrip from './FilmStrip';
 
 type Props = {
   sections: ExperienceSection[];
@@ -10,12 +13,13 @@ type Props = {
   emptyMessage: string;
   language: 'ar' | 'en';
   theme: string;
+  occasion: string;
 };
 type SectionProps = Props & { section: ExperienceSection; onOpened: () => void; onCompleted: (reason: 'advance' | 'leave') => void };
 
-function MessageSection({ letter, emptyMessage, language, theme, onOpened, onCompleted }: SectionProps) {
+function MessageSection({ letter, emptyMessage, language, theme, occasion, onOpened, onCompleted }: SectionProps) {
   return <EnvelopeLetter greeting={letter?.title ?? ''} body={letter?.message || emptyMessage}
-    sign={letter?.signature ?? ''} lang={language} theme={theme} onOpened={onOpened} onCompleted={onCompleted} />;
+    sign={letter?.signature ?? ''} lang={language} theme={theme} occasion={occasion} onOpened={onOpened} onCompleted={onCompleted} />;
 }
 
 function TextSection({ section }: SectionProps) {
@@ -28,12 +32,16 @@ function TextSection({ section }: SectionProps) {
 const SECTION_COMPONENTS: Record<string, (props: SectionProps) => React.ReactNode> = {
   message: MessageSection,
   photo_wheel: ({ section, language }) => <PhotoWheel section={section} language={language} />,
+  voice_note: ({ section, language }) => <VoiceNote section={section} language={language} />,
+  memory_calendar: ({ section, language }) => <MemoryCalendar section={section} language={language} />,
+  film_strip: ({ section, language }) => <FilmStrip section={section} language={language} />,
 };
 
 export default function ExperienceSections(props: Props) {
   const sections = useMemo(() => orderedSections(props.sections), [props.sections]);
   const nodes = useRef(new Map<string, HTMLDivElement>());
   const [hasOpened, setHasOpened] = useState(false);
+  const opened = useRef(false);
   const letterPosition = useRef<number | null>(null);
   const completed = useRef(false);
   const autoScrolling = useRef(false);
@@ -42,6 +50,8 @@ export default function ExperienceSections(props: Props) {
   const destination = useRef<HTMLElement | null>(null);
 
   const revealSections = useCallback(() => {
+    if (opened.current) return;
+    opened.current = true;
     const message = sections.find((section) => section.key === 'message');
     letterPosition.current = message ? nodes.current.get(message.id)?.getBoundingClientRect().top ?? null : null;
     setHasOpened(true);
@@ -61,6 +71,7 @@ export default function ExperienceSections(props: Props) {
 
   useEffect(() => {
     const release = () => { autoScrolling.current = false; window.clearTimeout(scrollTimeout.current); };
+    const onScrollEnd = (event: Event) => { if (event.target === document || event.target === window) release(); };
     const onScroll = () => {
       if (autoScrolling.current && Math.abs(destination.current?.getBoundingClientRect().top ?? 100) < 2) release();
     };
@@ -73,7 +84,7 @@ export default function ExperienceSections(props: Props) {
       } else if (event.cancelable) event.preventDefault();
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('scrollend', release);
+    window.addEventListener('scrollend', onScrollEnd);
     window.addEventListener('wheel', onIntent, { passive: false });
     window.addEventListener('touchmove', onIntent, { passive: false });
     window.addEventListener('keydown', onIntent);
@@ -81,7 +92,7 @@ export default function ExperienceSections(props: Props) {
       cancelAnimationFrame(frame.current);
       window.clearTimeout(scrollTimeout.current);
       window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('scrollend', release);
+      window.removeEventListener('scrollend', onScrollEnd);
       window.removeEventListener('wheel', onIntent);
       window.removeEventListener('touchmove', onIntent);
       window.removeEventListener('keydown', onIntent);
@@ -106,7 +117,7 @@ export default function ExperienceSections(props: Props) {
     });
   }, [sections]);
 
-  return <div className="nfc-sections" data-theme={props.theme} lang={props.language}
+  return <div className="nfc-sections" data-theme={props.theme} data-occasion={props.occasion} lang={props.language}
     dir={props.language === 'ar' ? 'rtl' : 'ltr'}>
     {sections.map((section) => {
       const Component = SECTION_COMPONENTS[section.key] ?? TextSection;

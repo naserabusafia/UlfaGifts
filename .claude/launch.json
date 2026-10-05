@@ -1,0 +1,58 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ulfa-f",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "Ulfa-F",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
+      "port": 5175
+    },
+    {
+      "name": "ulfa-b",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "Ulfa-B",
+        "run",
+        "start:prod"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "sections-prototype",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5199",
+        "--directory",
+        "C:/Users/Naser/AppData/Local/Temp/claude/C--Users-Naser-OneDrive-Apps-Desktop-Ulfa/a56554a2-432b-47fa-b2d6-332da09d4a3f/scratchpad/proto"
+      ],
+      "port": 5199
+    },
+    {
+      "name": "ulfa-f-setup",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "Ulfa-F",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5176",
+        "--strictPort"
+      ],
+      "port": 5176
+    }
+  ]
+}

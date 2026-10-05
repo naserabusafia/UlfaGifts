@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { ItemMedia } from './item-media.entity';
 import { ItemSection } from './item-section.entity';
-import { ThemeSectionContent } from './theme-section-content.entity';
+import { OccasionSectionContent } from './occasion-section-content.entity';
 
 @Entity('sections')
 @Index('UQ_sections_key', ['key'], { unique: true })
@@ -38,6 +38,6 @@ export class Section {
   @OneToMany(() => ItemMedia, (media) => media.section)
   media?: ItemMedia[];
 
-  @OneToMany(() => ThemeSectionContent, (content) => content.section)
-  themeContents?: ThemeSectionContent[];
+  @OneToMany(() => OccasionSectionContent, (content) => content.section)
+  occasionContents?: OccasionSectionContent[];
 }
