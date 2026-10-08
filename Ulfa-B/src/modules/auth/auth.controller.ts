@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AllowPendingPassword } from './decorators/allow-pending-password.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 
@@ -34,11 +37,22 @@ export class AuthController {
 
   @Get(['profile', 'me'])
   @UseGuards(JwtAuthGuard)
+  @AllowPendingPassword()
   getProfile(@CurrentUser() user: User) {
     return {
       message: 'Authenticated profile fetched successfully',
       user,
     };
+  }
+
+  @Patch('password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(userId, dto);
   }
 
   @Get('admin-only')

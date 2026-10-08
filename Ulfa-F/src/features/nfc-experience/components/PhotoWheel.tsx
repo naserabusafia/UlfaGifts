@@ -39,7 +39,7 @@ function ReelPhoto({ photo, position, pileCount, active, dragAngle, format, onCl
     style={{ transform: `translate(${x * 100}cqw, ${y * 100}cqw) rotate(${angle}deg) scale(${scale})`,
       zIndex: pile ? 40 - depth : isActive ? 80 : 60 - Math.abs(position.offset ?? 0),
       '--photo-brightness': pile ? 1 - .15 * fraction : 1,
-      boxShadow: pile ? '0 3px 8px #10102045' : `0 ${3 + slot.emphasis * 10}px ${8 + slot.emphasis * 20}px #10102050` } as ReelStyle}
+      boxShadow: pile ? '0 3px 8px #1c1b3345' : `0 ${3 + slot.emphasis * 10}px ${8 + slot.emphasis * 20}px #1c1b3350` } as ReelStyle}
     aria-label={label} aria-current={isActive ? 'true' : undefined}
     tabIndex={isActive || (pile && depth === 0) ? 0 : -1} onClick={onClick}>
     <img src={photo.thumbnailUrl || photo.url} alt="" draggable="false"
@@ -63,15 +63,15 @@ function ReelDisk({ angle, maskId }: { angle: number; maskId: string }) {
         <feColorMatrix type="saturate" values="0" />
       </filter>
       <radialGradient id={`${maskId}-edge`}>
-        <stop offset="88%" stopColor="#443e38" stopOpacity="0" />
-        <stop offset="100%" stopColor="#443e38" stopOpacity=".12" />
+        <stop offset="88%" stopColor="#2c2a4c" stopOpacity="0" />
+        <stop offset="100%" stopColor="#2c2a4c" stopOpacity=".12" />
       </radialGradient>
     </defs>
     <g mask={`url(#${maskId})`}>
-      <circle cx="50" cy="50" r="50" fill="#E4DDD3" />
+      <circle cx="50" cy="50" r="50" fill="#EDE1DD" />
       <circle cx="50" cy="50" r="50" filter={`url(#${maskId}-grain)`} opacity=".075" />
       <circle cx="50" cy="50" r="50" fill={`url(#${maskId}-edge)`} />
-      <circle cx="50" cy="50" r={HOLE_RATIO * 50 + .4} fill="none" stroke="#19172b" strokeOpacity=".22" strokeWidth=".8" />
+      <circle cx="50" cy="50" r={HOLE_RATIO * 50 + .4} fill="none" stroke="#2c2a4c" strokeOpacity=".22" strokeWidth=".8" />
     </g>
   </svg>;
 }

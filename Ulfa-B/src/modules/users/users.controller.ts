@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -15,6 +16,7 @@ import {
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { AllowPendingPassword } from '../auth/decorators/allow-pending-password.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AddQuotaDto } from './dto/add-quota.dto';
@@ -22,6 +24,15 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './entities/user.entity';
 import { UsersService } from './users.service';
+
+/** Merchants may only reach their own record; admins reach any. */
+const assertSelfOrAdmin = (currentUser: User, id: string) => {
+  if (currentUser?.role !== UserRole.SUPER_ADMIN && currentUser?.id !== id) {
+    throw new ForbiddenException(
+      'Insufficient permissions to access this resource',
+    );
+  }
+};
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,7 +53,11 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: User,
+  ) {
+    assertSelfOrAdmin(currentUser, id);
     return this.usersService.findOne(id);
   }
 
@@ -56,17 +71,26 @@ export class UsersController {
     return this.usersService.update(id, { status: body.status }, currentUser?.id);
   }
 
+  // Only the account itself sets its first password; admins reset instead.
   @Patch(':id/first-login-password')
+  @AllowPendingPassword()
   @HttpCode(HttpStatus.OK)
   changeFirstLoginPasswordById(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { newPassword?: string; password?: string },
+    @CurrentUser() currentUser: User,
   ) {
+    if (currentUser?.id !== id) {
+      throw new ForbiddenException(
+        'Insufficient permissions to access this resource',
+      );
+    }
     const password = body.newPassword || body.password;
     return this.usersService.changeFirstLoginPassword(id, password);
   }
 
   @Patch('first-login-password')
+  @AllowPendingPassword()
   @HttpCode(HttpStatus.OK)
   changeFirstLoginPasswordMe(
     @CurrentUser() currentUser: User,
@@ -77,6 +101,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -105,7 +130,11 @@ export class UsersController {
 
   @Get(':id/quota-logs')
   @Roles(UserRole.SUPER_ADMIN, UserRole.MERCHANT)
-  getQuotaLogs(@Param('id', ParseUUIDPipe) id: string) {
+  getQuotaLogs(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: User,
+  ) {
+    assertSelfOrAdmin(currentUser, id);
     return this.usersService.getQuotaLogs(id);
   }
 

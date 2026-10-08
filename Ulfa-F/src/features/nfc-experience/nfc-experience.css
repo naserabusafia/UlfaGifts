@@ -1,7 +1,7 @@
 .nfc-intro {
-  --nfc-pink: #ecdbd7;
+  --nfc-pink: #ede1dd;
   --nfc-ink: #2c2a4c;
-  --nfc-key: #f2e7e1;
+  --nfc-key: #f6efec;
   display: flex;
   min-height: 100dvh;
   align-items: center;
@@ -14,9 +14,9 @@
 
 /* New theme identifiers can override these variables without changing layout. */
 .nfc-intro--theme-luxury {
-  --nfc-pink: #ecdbd7;
+  --nfc-pink: #ede1dd;
   --nfc-ink: #2c2a4c;
-  --nfc-key: #f2e7e1;
+  --nfc-key: #f6efec;
 }
 
 .nfc-intro__artboard {
@@ -88,7 +88,7 @@
 
 .nfc-intro__skip:focus-visible,
 .nfc-intro__key:focus-visible {
-  outline: 3px solid #751427;
+  outline: 3px solid #7b2e3c;
   outline-offset: 3px;
 }
 
@@ -161,6 +161,19 @@
   font-weight: 400;
   line-height: 1.2;
   transform: none;
+}
+
+/* The store's note under "paused": smaller, wraps, and stays inside the card. */
+.nfc-intro__subtitle.nfc-intro__reason {
+  top: 43%;
+  max-height: 30%;
+  overflow: hidden;
+  font-size: 3.7cqw;
+  font-style: italic;
+  line-height: 1.35;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  opacity: .82;
 }
 
 .nfc-intro__pin-dots {
@@ -292,7 +305,7 @@
   min-width: 0;
   padding: 0 0.3cqw 0.5cqw;
   border: 0;
-  border-bottom: 1px solid rgb(242 231 225 / 45%);
+  border-bottom: 1px solid rgb(237 225 221 / 45%);
   border-radius: 0;
   background: transparent;
   color: var(--nfc-key);
@@ -350,7 +363,7 @@
 }
 
 .nfc-intro__calendar-grid button.is-selected {
-  background: #b98692;
+  background: #7b2e3c;
   color: white;
 }
 
@@ -389,7 +402,7 @@
   width: 100%;
   align-items: center;
   gap: 3cqw;
-  color: #d5adaf;
+  color: #c39aa0;
   font-size: 5cqw;
   line-height: 1;
 }
@@ -398,7 +411,7 @@
 .nfc-intro__text-ornament::after {
   height: 1px;
   flex: 1;
-  background: #d5adaf;
+  background: #c39aa0;
   content: '';
 }
 
@@ -412,7 +425,7 @@
 
 .nfc-intro__text-hint {
   margin: 2cqw 0 6cqw;
-  color: #e4d2d3;
+  color: #ede1dd;
   font-family: 'Cormorant Garamond', 'El Messiri', Georgia, serif;
   font-size: 4cqw;
   text-align: center;
@@ -433,7 +446,7 @@
 }
 
 .nfc-intro__text-panel input::placeholder {
-  color: #77718b;
+  color: #2c2a4c99;
 }
 
 .nfc-intro__text-panel .nfc-intro__panel-ok {

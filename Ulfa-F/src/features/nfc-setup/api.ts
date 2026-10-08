@@ -4,9 +4,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000
 
 export class ApiError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** The store's note when a paused gift answers 403. */
+  readonly reason: string | null;
+  constructor(status: number, message: string, reason: string | null = null) {
     super(message);
     this.status = status;
+    this.reason = reason;
   }
 }
 
@@ -70,14 +73,14 @@ export function setupApi(token: string) {
     } catch {
       throw new ApiError(0, 'NETWORK');
     }
-    const json = await response.json().catch(() => null) as { data?: T; message?: unknown } | null;
+    const json = await response.json().catch(() => null) as { data?: T; message?: unknown; reason?: unknown } | null;
     if (response.status === 401 && session && !retried) {
       await onExpired();
       return call<T>(method, path, body, true, keepalive);
     }
     if (!response.ok) {
       const message = Array.isArray(json?.message) ? json.message.join(', ') : String(json?.message ?? response.statusText);
-      throw new ApiError(response.status, message);
+      throw new ApiError(response.status, message, typeof json?.reason === 'string' ? json.reason : null);
     }
     return json?.data as T;
   }
@@ -110,7 +113,7 @@ export function setupApi(token: string) {
 
 export type SetupApi = ReturnType<typeof setupApi>;
 
-/** PUT to a signed URL (S3 or the local stand-in). */
+/** PUT to a signed S3 URL. */
 export async function putObject(target: UploadTarget, body: Uint8Array<ArrayBuffer>): Promise<void> {
   let response: Response;
   try {

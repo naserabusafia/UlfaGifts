@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CancelIntegrationOrderDto } from '../orders/dto/cancel-integration-order.dto';
 import { CreateIntegrationOrderDto } from '../orders/dto/create-integration-order.dto';
 import { OrderSource } from '../orders/entities/order.entity';
 import { OrdersService } from '../orders/orders.service';
@@ -75,6 +76,18 @@ export class IntegrationOrdersController {
       source: OrderSource.EXTERNAL_API,
       idempotencyKey: normalizedKey,
     });
+  }
+
+  @Post('cancel')
+  @HttpCode(HttpStatus.OK)
+  cancel(
+    @CurrentUser('id') merchantId: string,
+    @Body() dto: CancelIntegrationOrderDto,
+  ) {
+    return this.ordersService.cancelForIntegration(
+      merchantId,
+      dto.idempotencyKey,
+    );
   }
 }
 

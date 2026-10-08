@@ -60,6 +60,7 @@ export const mockMerchants: MerchantUser[] = [
 const INITIAL_ORDERS: SystemOrder[] = [
   {
     id: 'a1000000-0000-4000-8000-000000000001',
+    orderNumber: 1048,
     customerPhone: '+970591000001',
     externalOrderId: 'ORD-2026-1048',
     customerName: 'سارة خالد',
@@ -70,6 +71,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000002',
+    orderNumber: 1047,
     customerPhone: '+970591000002',
     externalOrderId: 'ORD-2026-1047',
     customerName: 'محمد نصار',
@@ -95,6 +97,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000003',
+    orderNumber: 1046,
     customerPhone: '+970591000003',
     externalOrderId: 'ORD-2026-1046',
     customerName: 'ليان أحمد',
@@ -113,6 +116,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000004',
+    orderNumber: 1045,
     customerPhone: '+970591000004',
     externalOrderId: 'WEB-8831',
     customerName: 'Omar Saleh',
@@ -131,6 +135,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000005',
+    orderNumber: 1044,
     customerPhone: '+970591000005',
     externalOrderId: 'ORD-2026-1044',
     customerName: 'نور حجازي',
@@ -141,6 +146,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000006',
+    orderNumber: 1043,
     customerPhone: '+970591000006',
     externalOrderId: 'ORD-2026-1043',
     customerName: 'ريم عادل',
@@ -159,6 +165,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000007',
+    orderNumber: 1042,
     customerPhone: '+970591000007',
     externalOrderId: 'POS-5712',
     customerName: 'Yousef Ali',
@@ -177,6 +184,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000008',
+    orderNumber: 1041,
     customerPhone: '+970591000008',
     externalOrderId: 'ORD-2026-1041',
     customerName: 'ميس قاسم',
@@ -187,6 +195,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000009',
+    orderNumber: 1040,
     customerPhone: '+970591000009',
     externalOrderId: 'ORD-2026-1040',
     customerName: 'رنا سمير',
@@ -197,6 +206,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000010',
+    orderNumber: 1039,
     customerPhone: '+970591000010',
     externalOrderId: 'WEB-8824',
     customerName: 'Dana Nasser',
@@ -207,6 +217,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000011',
+    orderNumber: 1038,
     customerPhone: '+970591000011',
     externalOrderId: 'ORD-2026-1038',
     customerName: 'أحمد مراد',
@@ -217,6 +228,7 @@ const INITIAL_ORDERS: SystemOrder[] = [
   },
   {
     id: 'a1000000-0000-4000-8000-000000000012',
+    orderNumber: 1037,
     customerPhone: '+970591000012',
     externalOrderId: 'ORD-2026-1037',
     customerName: 'هبة إبراهيم',
@@ -347,6 +359,7 @@ export const mockOrderService = {
 
     const order: SystemOrder = {
       id: crypto.randomUUID(),
+      orderNumber: Math.max(0, ...orders.map((item) => item.orderNumber)) + 1,
       externalOrderId: payload.externalOrderId,
       customerName: payload.customerName,
       customerPhone: payload.customerPhone,

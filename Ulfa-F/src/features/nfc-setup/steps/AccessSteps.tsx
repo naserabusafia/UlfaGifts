@@ -38,20 +38,6 @@ export function WelcomeStep({ copy, language, onLanguage, onStart }: {
   </section>;
 }
 
-/** The lock screen the recipient will see, in miniature. */
-function TheySee({ copy, type, prompt }: { copy: SetupCopy; type: SecretType; prompt: string }) {
-  return <figure className="s-theysee">
-    <div className="s-theysee__phone">
-      <strong>{copy.lockScreenTitle}</strong>
-      <span>{prompt || '…'}</span>
-      {type === 'PIN' && <span className="s-theysee__dots" aria-hidden="true">○○○○○○</span>}
-      {type === 'DATE' && <span aria-hidden="true">— / — / ——</span>}
-      {type === 'TEXT' && <span aria-hidden="true">______________</span>}
-    </div>
-    <figcaption>{copy.theySee}</figcaption>
-  </figure>;
-}
-
 export function LockStep({ copy, isNew, onBack, onDone, busy, error }: {
   copy: SetupCopy; isNew: boolean; onBack?: () => void; onDone: (choice: SecretChoice) => void; busy?: boolean; error?: string;
 }) {
@@ -74,34 +60,31 @@ export function LockStep({ copy, isNew, onBack, onDone, busy, error }: {
   const shown = problem || error;
   return <form onSubmit={submit} noValidate>
     <Intro eyebrow={copy.lockEyebrow} title={isNew ? copy.lockTitle : copy.changeLockTitle} lede={copy.lockBody} />
-    <div className="s-lockpane">
-      <div className="s-fields">
-        <div>
-          <div className="s-tabs" role="tablist" aria-label={copy.lockTitle}>
-            {(['PIN', 'DATE', 'TEXT'] as const).map((option) =>
-              <button key={option} type="button" role="tab" className="s-tab" aria-selected={type === option}
-                onClick={() => choose(option)}>{copy.types[option]}</button>)}
-          </div>
-          <p className="s-note" style={{ marginTop: 10 }}>{copy.typeHints[type]}</p>
+    <div className="s-fields">
+      <div>
+        <div className="s-tabs" role="tablist" aria-label={copy.lockTitle}>
+          {(['PIN', 'DATE', 'TEXT'] as const).map((option) =>
+            <button key={option} type="button" role="tab" className="s-tab" aria-selected={type === option}
+              onClick={() => choose(option)}>{copy.types[option]}</button>)}
         </div>
-        <div className="s-field">
-          <label className="s-label" htmlFor={`${ids}-prompt`}>
-            {type === 'TEXT' ? copy.question : <>{copy.hint} <small>· {copy.optional}</small></>}
-          </label>
-          <input id={`${ids}-prompt`} className="s-input" maxLength={200} value={prompt}
-            placeholder={type === 'TEXT' ? copy.questionPlaceholder : copy.hintPlaceholder}
-            onChange={(e) => { setPrompt(e.target.value); setProblem(''); }} />
-        </div>
-        <div className="s-two">
-          <SecretField type={type} id={`${ids}-answer`} label={type === 'PIN' ? copy.pin : type === 'DATE' ? copy.date : copy.answer}
-            value={answer} onChange={(v) => { setAnswer(v); setProblem(''); }} invalid={!!shown} />
-          <SecretField type={type} id={`${ids}-again`} label={type === 'PIN' ? copy.pinAgain : copy.answerAgain}
-            value={again} onChange={(v) => { setAgain(v); setProblem(''); }} invalid={!!shown} />
-        </div>
-        {type === 'TEXT' && <p className="s-note">{copy.answerNote}</p>}
-        {shown && <p className="s-error" role="alert">{shown}</p>}
+        <p className="s-note" style={{ marginTop: 10 }}>{copy.typeHints[type]}</p>
       </div>
-      <TheySee copy={copy} type={type} prompt={prompt} />
+      <div className="s-field">
+        <label className="s-label" htmlFor={`${ids}-prompt`}>
+          {type === 'TEXT' ? copy.question : <>{copy.hint} <small>· {copy.optional}</small></>}
+        </label>
+        <input id={`${ids}-prompt`} className="s-input" maxLength={200} value={prompt}
+          placeholder={type === 'TEXT' ? copy.questionPlaceholder : copy.hintPlaceholder}
+          onChange={(e) => { setPrompt(e.target.value); setProblem(''); }} />
+      </div>
+      <div className="s-two">
+        <SecretField type={type} id={`${ids}-answer`} label={type === 'PIN' ? copy.pin : type === 'DATE' ? copy.date : copy.answer}
+          value={answer} onChange={(v) => { setAnswer(v); setProblem(''); }} invalid={!!shown} />
+        <SecretField type={type} id={`${ids}-again`} label={type === 'PIN' ? copy.pinAgain : copy.answerAgain}
+          value={again} onChange={(v) => { setAgain(v); setProblem(''); }} invalid={!!shown} />
+      </div>
+      {type === 'TEXT' && <p className="s-note">{copy.answerNote}</p>}
+      {shown && <p className="s-error" role="alert">{shown}</p>}
     </div>
     <div className="s-actions">
       {onBack && <button type="button" className="s-text" onClick={onBack}>{copy.back}</button>}

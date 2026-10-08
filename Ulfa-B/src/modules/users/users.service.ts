@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -53,13 +54,24 @@ export class UsersService {
   }
 
   async changeFirstLoginPassword(userId: string, newPassword?: string): Promise<User> {
-    if (!newPassword || newPassword.length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters long');
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long');
+    }
+    if (newPassword.length > 72) {
+      throw new BadRequestException('Password must be at most 72 characters long');
     }
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+    // Without a current password this route is only for the first password;
+    // later changes go through PATCH /auth/password.
+    if (user.status !== UserStatus.PENDING_PASSWORD_SET) {
+      throw new ForbiddenException({
+        message: 'PASSWORD_ALREADY_SET',
+        code: 'PASSWORD_ALREADY_SET',
+      });
     }
 
     user.passwordHash = newPassword;

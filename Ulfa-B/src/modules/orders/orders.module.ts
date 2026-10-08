@@ -10,6 +10,7 @@ import {
   OrdersController,
 } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { CancelledContentPurger } from './cancelled-content.purger';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { OrdersService } from './orders.service';
     AuthModule,
   ],
   controllers: [OrdersController, MerchantOrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, CancelledContentPurger],
   exports: [OrdersService],
 })
 export class OrdersModule {}

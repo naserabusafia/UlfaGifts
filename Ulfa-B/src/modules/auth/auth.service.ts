@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -10,6 +11,7 @@ import { Repository } from 'typeorm';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
@@ -103,6 +105,36 @@ export class AuthService {
       accessToken,
       user,
     };
+  }
+
+  /**
+   * Signed-in password change. Wrong current password is a 400, not a 401,
+   * so the client does not read it as an expired session.
+   */
+  async changePassword(
+    userId: string,
+    { currentPassword, newPassword }: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User profile not found');
+    }
+    if (!(await user.validatePassword(currentPassword))) {
+      throw new BadRequestException({
+        message: 'Current password is incorrect',
+        code: 'CURRENT_PASSWORD_INCORRECT',
+      });
+    }
+    if (await user.validatePassword(newPassword)) {
+      throw new BadRequestException({
+        message: 'The new password must be different from the current one',
+        code: 'PASSWORD_UNCHANGED',
+      });
+    }
+
+    user.passwordHash = newPassword; // hashed by the entity hook
+    await this.userRepository.save(user);
+    return { message: 'Password changed' };
   }
 
   async getProfile(userId: string): Promise<User> {

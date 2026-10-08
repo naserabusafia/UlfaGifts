@@ -28,6 +28,9 @@ type Challenge = {
   viewerAuthType: ViewerAuthType; viewerAuthPrompt?: string | null;
   // Set while the buyer is still preparing the gift.
   preparing?: boolean;
+  // Set when the store has paused the gift, with its optional note.
+  locked?: boolean;
+  lockReason?: string | null;
   // End-to-end encrypted items: the answer is turned into keys in the browser.
   encryption?: { keySalt: string; kdfIterations: number } | null;
 };
@@ -56,6 +59,7 @@ const viewerCopy = {
     loadError: 'Unable to load this message.', verifyError: 'Incorrect password. Please try again.',
     tooManyAttempts: 'Too many wrong attempts. Please try again in 15 minutes.',
     preparing: 'This gift is still being prepared. Come back soon.',
+    paused: 'The store has paused this gift for now.',
     retry: 'Try again', unavailable: 'This message is unavailable.',
     connectionError: 'Unable to connect. Please try again.',
     emptyMessage: 'This letter has no message yet.',
@@ -70,6 +74,7 @@ const viewerCopy = {
     loadError: 'تعذر تحميل هذه الرسالة.', verifyError: 'كلمة المرور غير صحيحة. حاول مرة أخرى.',
     tooManyAttempts: 'محاولات خاطئة كثيرة. حاول مرة أخرى بعد 15 دقيقة.',
     preparing: 'هذه الهدية ما زالت قيد التجهيز. عُد قريبًا.',
+    paused: 'أوقف المتجر هذه الهدية مؤقتًا.',
     retry: 'حاول مرة أخرى', unavailable: 'هذه الرسالة غير متاحة.',
     connectionError: 'تعذر الاتصال. حاول مرة أخرى.',
     emptyMessage: 'لم تتم إضافة نص لهذه الرسالة بعد.',
@@ -174,6 +179,7 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount, demoThem
         setChallenge(body.data);
         setAppearance({ theme: body.data.theme || DEFAULT_THEME, occasion: body.data.occasion || DEFAULT_OCCASION,
           language: body.data.language || 'en' });
+        if (body.data.locked) return;
         if (body.data.viewerAuthType === 'NONE') {
           const response = await fetch(`${API_BASE_URL}/nfc-items/public/${encodeURIComponent(nfcId)}/verify`, {
             method: 'POST',
@@ -394,6 +400,13 @@ function NfcExperience({ nfcId, demoAuth, demoLanguage, demoPhotoCount, demoThem
             <h1 className="nfc-intro__title">{copy.title}</h1>
             <p className="nfc-intro__subtitle" role="alert">{copy.loadError}</p>
             <button className="nfc-intro__panel-ok nfc-intro__retry" type="button" onClick={() => window.location.reload()}>{copy.retry}</button>
+          </section>
+        ) : challenge.locked ? (
+          <section className="nfc-intro__password" aria-label={copy.paused}>
+            <BrandMark />
+            <h1 className="nfc-intro__title">{copy.title}</h1>
+            <p className="nfc-intro__subtitle" role="status">{copy.paused}</p>
+            {challenge.lockReason && <p className="nfc-intro__subtitle nfc-intro__reason">{challenge.lockReason}</p>}
           </section>
         ) : challenge.preparing ? (
           <section className="nfc-intro__password" aria-label={copy.preparing}>

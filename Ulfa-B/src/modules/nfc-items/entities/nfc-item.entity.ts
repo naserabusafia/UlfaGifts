@@ -104,6 +104,27 @@ export class NfcItem {
   @Column({ name: 'is_locked', default: false })
   isLocked: boolean;
 
+  // Optional note from the merchant, shown to the buyer and the recipient
+  // while the item is locked. Cleared when it is unlocked.
+  @Column({ name: 'lock_reason', type: 'varchar', length: 200, nullable: true })
+  lockReason?: string | null;
+
+  // How many physical gifts carry this item's link. Above 1 when the merchant
+  // chose one shared link for several gifts in the same order.
+  @Column({ name: 'gift_count', type: 'integer', default: 1 })
+  giftCount: number;
+
+  // Whether creating this item used one of the merchant's quota units, so
+  // cancelling the order refunds exactly what was charged. Items an admin
+  // attaches directly are not charged.
+  @Column({ name: 'quota_charged', default: true })
+  quotaCharged: boolean;
+
+  // Locked by cancelling its order (not by the merchant), so restoring the
+  // order unlocks exactly these and leaves the merchant's own locks alone.
+  @Column({ name: 'locked_by_cancel', default: false })
+  lockedByCancel: boolean;
+
   // The occasion (and through it the theme) and language describe the NFC
   // experience itself, including the viewer-auth screen shown before content.
   @Index('IDX_nfc_items_occasion_id')

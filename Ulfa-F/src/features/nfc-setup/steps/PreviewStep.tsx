@@ -11,10 +11,10 @@ import { toExperienceMedia } from '../draftView';
  * instead of the API, starting from the lock screen. Only a small bar floats
  * over it.
  */
-export default function PreviewStep({ copy, draft, authType, prompt, verify, onEdit, onPublish }: {
+export default function PreviewStep({ copy, draft, authType, prompt, verify, onEdit, onPublish, onFinish }: {
   copy: SetupCopy; draft: DraftState; authType: ViewerAuthType; prompt: string | null;
   verify: (type: ViewerAuthType, answer: string) => Promise<boolean>;
-  onEdit: () => void; onPublish: () => Promise<void>;
+  onEdit: () => void; onPublish: () => Promise<void>; onFinish: () => Promise<void>;
 }) {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
@@ -44,7 +44,10 @@ export default function PreviewStep({ copy, draft, authType, prompt, verify, onE
       {error && <span className="s-previewbar__error" role="alert">{error}</span>}
       <button type="button" className="s-btn s-btn--line" onClick={onEdit}>{copy.editSection}</button>
       {draft.published
-        ? <span className="s-previewbar__live">● {copy.live}</span>
+        // Already live and saved as it went: the way out confirms that.
+        ? <button type="button" className="s-btn" disabled={publishing}
+          onClick={() => { setPublishing(true); onFinish().catch(() => { setError(copy.networkError); setPublishing(false); }); }}>
+          {publishing ? copy.waitUploads : copy.finish}</button>
         : <button type="button" className="s-btn" onClick={() => void publish()} disabled={publishing}>
           {publishing ? (busy ? copy.waitUploads : copy.publishing) : copy.publish}</button>}
     </div>

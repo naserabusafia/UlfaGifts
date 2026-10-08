@@ -1,4 +1,8 @@
-import { normalizePhoneNumber, PHONE_NUMBER_PATTERN } from './phone.util';
+import {
+  INTERNATIONAL_PHONE_NUMBER_PATTERN,
+  normalizePhoneNumber,
+  PHONE_NUMBER_PATTERN,
+} from './phone.util';
 
 describe('customer phone validation', () => {
   it.each(['+970591234567', '+972501234567', '+962791234567', '+962771234567'])(
@@ -21,4 +25,20 @@ describe('customer phone validation', () => {
   it('normalizes spaces, parentheses, dots, and dashes', () => {
     expect(normalizePhoneNumber('+962 (79) 123-45.67')).toBe('+962791234567');
   });
+});
+
+describe('international phone validation', () => {
+  it.each(['+491701234567', '+14155552671', '+970591234567'])(
+    'accepts %s',
+    (phone) => {
+      expect(INTERNATIONAL_PHONE_NUMBER_PATTERN.test(phone)).toBe(true);
+    },
+  );
+
+  it.each(['0591234567', '+0123456789', '+1234567', '+1234567890123456'])(
+    'rejects %s',
+    (phone) => {
+      expect(INTERNATIONAL_PHONE_NUMBER_PATTERN.test(phone)).toBe(false);
+    },
+  );
 });

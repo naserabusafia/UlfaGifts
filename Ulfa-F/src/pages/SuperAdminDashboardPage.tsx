@@ -1,225 +1,318 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../features/dashboard/services/userService';
-import {
-  ShieldCheck,
-  Users,
-  Server,
-  Activity,
-  Database,
-  AlertCircle,
-  ArrowUpRight,
-  ArrowRight,
-  Store,
-} from 'lucide-react';
+import type { MerchantUser } from '../features/dashboard/types';
+import { orderService } from '../features/orders/services/orderService';
+import type { OrdersSummary } from '../features/orders/types';
+import { formatCount, formatDay, formatRelative } from '../features/dashboard/format';
+import '../features/dashboard/portal.css';
+import { ArrowRight, Infinity as InfinityIcon, RefreshCw, ShoppingCart, Store, UserRoundPlus } from 'lucide-react';
+
+const MERCHANTS_LIMIT = 100;
+const LOW_SHARE = 0.15;
+const LIST_SIZE = 5;
+
+// The users endpoint has answered with a bare list, { items }, and { data: { items } }.
+type MerchantsPayload =
+  | MerchantUser[]
+  | { items?: MerchantUser[]; data?: { items?: MerchantUser[] }; meta?: { total?: number } };
+
+type MerchantState = 'active' | 'pending' | 'inactive';
+
+const merchantState = (m: MerchantUser): MerchantState => {
+  if (m.status === 'PENDING_PASSWORD_SET') return 'pending';
+  if (m.status === 'INACTIVE' || m.isActive === false) return 'inactive';
+  return 'active';
+};
+
+const remainingOf = (m: MerchantUser) => Math.max(0, (m.totalQuota ?? 0) - (m.usedLinks ?? 0));
 
 export const SuperAdminDashboardPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const lang = i18n.language;
 
-  // Merchants State
-  const [merchantsCount, setMerchantsCount] = useState<number>(0);
+  const [merchants, setMerchants] = useState<MerchantUser[]>([]);
+  const [merchantsTotal, setMerchantsTotal] = useState(0);
+  const [ordersSummary, setOrdersSummary] = useState<OrdersSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  // Fetch Merchants Count
-  const fetchMerchantsCount = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const data: any = await userService.getMerchants(1, 100);
-      const items = Array.isArray(data)
-        ? data
-        : data?.items || data?.data?.items || [];
-      setMerchantsCount(items.length);
+      const data = (await userService.getMerchants(1, MERCHANTS_LIMIT)) as unknown as MerchantsPayload;
+      const items: MerchantUser[] = Array.isArray(data) ? data : data?.items || data?.data?.items || [];
+      setMerchants(items);
+      setMerchantsTotal(Array.isArray(data) ? items.length : (data?.meta?.total ?? items.length));
+      setLoadError(false);
     } catch (err) {
-      console.error('Failed to load merchants count:', err);
+      console.error('Failed to load merchants:', err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
+
+    // Order totals only when the orders page reads the real API, never the temporary mock.
+    if (!orderService.isMockMode) {
+      try {
+        const res = await orderService.getOrders({ page: 1, limit: 1 });
+        setOrdersSummary(res.summary);
+      } catch {
+        setOrdersSummary(null);
+      }
+    }
+  }, []);
+
+  const reload = () => {
+    setLoading(true);
+    setLoadError(false);
+    fetchData();
   };
 
   useEffect(() => {
-    fetchMerchantsCount();
-  }, []);
+    fetchData();
+  }, [fetchData]);
+
+  const stats = useMemo(() => {
+    const active = merchants.filter((m) => merchantState(m) === 'active');
+    const pending = merchants.filter((m) => merchantState(m) === 'pending');
+    const inactive = merchants.filter((m) => merchantState(m) === 'inactive');
+    const usedLinks = merchants.reduce((sum, m) => sum + (m.usedLinks ?? 0), 0);
+    const limited = active.filter((m) => !m.isUnlimitedQuota);
+    const low = limited
+      .filter((m) => {
+        const total = m.totalQuota ?? 0;
+        return total <= 0 || remainingOf(m) / total <= LOW_SHARE;
+      })
+      .sort((a, b) => remainingOf(a) - remainingOf(b));
+    const busiest = [...merchants]
+      .filter((m) => (m.usedLinks ?? 0) > 0)
+      .sort((a, b) => (b.usedLinks ?? 0) - (a.usedLinks ?? 0))
+      .slice(0, LIST_SIZE);
+    return { active, pending, inactive, usedLinks, low, busiest };
+  }, [merchants]);
+
+  const name = (m: MerchantUser) => m.companyName || m.email;
+  const busiestMax = stats.busiest[0]?.usedLinks || 1;
+  // Unknown numbers show a dash, never a misleading zero.
+  const unknown = loading || loadError;
+  const dash = unknown ? '–' : null;
+
+  const lede = () => {
+    if (loading) return t('portal.admin.ledeLoading');
+    if (loadError) return t('portal.admin.ledeError');
+    if (merchants.length === 0) return t('portal.admin.ledeEmpty');
+    if (stats.low.length === 0 && stats.pending.length === 0) return t('portal.admin.ledeCalm');
+    return (
+      <>
+        {stats.low.length > 0 && (
+          <>
+            <b>{stats.low.length}</b> {t('portal.admin.ledeLow')}
+          </>
+        )}
+        {stats.low.length > 0 && stats.pending.length > 0 && t('portal.admin.ledeAnd')}
+        {stats.pending.length > 0 && (
+          <>
+            <b>{stats.pending.length}</b> {t('portal.admin.ledePending')}
+          </>
+        )}
+      </>
+    );
+  };
 
   return (
-    <div className="space-y-6 pb-12 font-sans">
-      {/* Header Banner */}
-      <div className="rounded-3xl border border-border bg-gradient-to-r from-primary/15 via-purple-500/10 to-card p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-              <ShieldCheck className="h-4 w-4" />
-              <span>{t('superAdmin.badge', 'Super Admin Portal')}</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
-              {t('superAdmin.title', 'Super Admin Command Center')}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t('superAdmin.welcome', 'Welcome back, {{name}}. You have full system management access.', {
-                name: user?.name || user?.email || 'Super Admin',
-              })}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="rounded-2xl border border-border bg-card px-4 py-2 text-xs font-mono font-bold text-foreground">
-              Role: <span className="text-primary">{user?.role}</span>
-            </div>
-          </div>
+    <div className="pt">
+      <header className="pt-hero pt-rise">
+        <div>
+          <p className="pt-eyebrow">{formatDay(new Date(), lang)}</p>
+          <h1 className="pt-title">
+            {t('portal.admin.greeting')} <em>{user?.name || user?.email?.split('@')[0] || ''}</em>
+          </h1>
+          <p className="pt-lede">{lede()}</p>
         </div>
-      </div>
-
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-primary/50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {t('superAdmin.totalUsers', 'Total Users')}
-            </span>
-            <div className="rounded-xl bg-primary/10 p-2 text-primary">
-              <Users className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-foreground">{merchantsCount || 12}</span>
-            <span className="inline-flex items-center text-xs font-semibold text-emerald-500">
-              <ArrowUpRight className="h-3.5 w-3.5" /> +12%
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-primary/50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {t('superAdmin.activeMerchants', 'Active Merchants')}
-            </span>
-            <div className="rounded-xl bg-purple-500/10 p-2 text-purple-500">
-              <Server className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-foreground">{merchantsCount || 8}</span>
-            <span className="inline-flex items-center text-xs font-semibold text-emerald-500">
-              <ArrowUpRight className="h-3.5 w-3.5" /> +8.4%
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-primary/50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {t('superAdmin.systemUptime', 'System Uptime')}
-            </span>
-            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-500">
-              <Activity className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-foreground">99.98%</span>
-            <span className="text-xs font-medium text-emerald-500">Optimal</span>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-primary/50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {t('superAdmin.databaseLoad', 'Database Load')}
-            </span>
-            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-500">
-              <Database className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-foreground">24ms</span>
-            <span className="text-xs font-medium text-muted-foreground">Avg Latency</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Dedicated Merchants Management Banner Shortcut */}
-      <div className="rounded-3xl border border-primary/20 bg-gradient-to-r from-primary/10 via-purple-500/5 to-card p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <Store className="h-6 w-6 text-primary" />
-              <span>{t('superAdmin.merchantsManagement', 'Merchants & Quota Management')}</span>
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                'superAdmin.viewAllMerchantsSubtitle',
-                'Dedicated mobile-first page to manage merchant details, soft-delete, and assign quota units.'
-              )}
-            </p>
-          </div>
-          <Link
-            to="/super-admin/merchants"
-            className="self-start sm:self-auto inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-xs font-extrabold text-primary-foreground shadow-md hover:bg-primary/90 transition cursor-pointer"
-          >
-            <span>{t('superAdmin.viewAllMerchants', 'Open Merchants Page')}</span>
-            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+        <div className="pt-hero__actions">
+          <Link to="/super-admin/orders" className="pt-btn pt-btn--ghost">
+            <ShoppingCart />
+            <span>{t('nav.ordersManagement')}</span>
+          </Link>
+          <Link to="/super-admin/merchants" className="pt-btn pt-btn--ink">
+            <Store />
+            <span>{t('portal.admin.manageMerchants')}</span>
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Audit & RBAC Overview Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4">
-          <h2 className="text-lg font-bold text-foreground">
-            {t('superAdmin.securityLogTitle', 'System Audit & Authorization Logs')}
-          </h2>
-          <div className="space-y-3">
-            {[
-              { id: 1, action: 'GET /api/v1/users', user: user?.email || 'admin@ulfa.app', status: '200 OK', time: 'Just now' },
-              { id: 2, action: 'POST /api/v1/users/:id/quota', user: user?.email || 'admin@ulfa.app', status: '200 OK', time: '5 mins ago' },
-              { id: 3, action: 'POST /api/v1/auth/signin', user: 'merchant@ulfa.app', status: '200 OK', time: '14 mins ago' },
-            ].map((log) => (
-              <div
-                key={log.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border bg-background gap-2 text-xs"
-              >
-                <div className="space-y-0.5">
-                  <p className="font-mono font-bold text-foreground">{log.action}</p>
-                  <p className="text-muted-foreground">{log.user}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
-                      log.status.includes('200') ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'
-                    }`}
-                  >
-                    {log.status}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">{log.time}</span>
-                </div>
-              </div>
-            ))}
+      {loadError && (
+        <div className="pt-sheet pt-rise" style={{ paddingTop: 18 }}>
+          <div className="pt-error" role="alert">
+            <span>{t('portal.admin.loadError')}</span>
+            <button type="button" className="pt-btn pt-btn--ghost pt-btn--sm" onClick={reload}>
+              <RefreshCw />
+              {t('merchantOrders.refresh')}
+            </button>
           </div>
         </div>
+      )}
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4">
-          <h2 className="text-lg font-bold text-foreground">
-            {t('superAdmin.roleMatrix', 'RBAC System Status')}
-          </h2>
-          <div className="space-y-3 text-xs">
-            <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
-              <p className="font-bold text-primary">SUPER_ADMIN Role Active</p>
-              <p className="text-muted-foreground">Full read/write permissions for all system configurations.</p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-muted border border-border space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground">Quota Audit System</span>
-                <span className="text-emerald-500 font-bold">Enabled</span>
-              </div>
-              <p className="text-muted-foreground">QuotaLog table tracks admin_id, merchant_id, amount & timestamps.</p>
-            </div>
-
-            <div className="flex items-center gap-2 text-amber-500 text-xs font-semibold p-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>Token auto-renewal interceptor active</span>
-            </div>
-          </div>
+      <section className="pt-sheet pt-strip pt-rise" aria-busy={loading}>
+        <div>
+          <span>{t('portal.admin.merchants')}</span>
+          <b className="pt-num">{dash ?? formatCount(merchantsTotal, lang)}</b>
+          <small>{unknown ? ' ' : t('portal.admin.activeCount', { count: stats.active.length })}</small>
         </div>
+        <div>
+          <span>{t('portal.admin.awaiting')}</span>
+          <b className="pt-num">{dash ?? stats.pending.length}</b>
+          <small>
+            {stats.inactive.length > 0
+              ? t('portal.admin.inactiveCount', { count: stats.inactive.length })
+              : t('portal.admin.awaitingHint')}
+          </small>
+        </div>
+        <div>
+          <span>{ordersSummary ? t('merchant.totalOrders', 'Total Orders') : t('portal.admin.usedLinks')}</span>
+          <b className="pt-num">
+            {dash ?? formatCount(ordersSummary ? ordersSummary.total : stats.usedLinks, lang)}
+          </b>
+          <small>
+            {ordersSummary
+              ? t('portal.admin.ordersPending', { count: ordersSummary.pending })
+              : t('portal.admin.usedLinksHint')}
+          </small>
+        </div>
+        <div>
+          <span>{t('portal.admin.lowQuota')}</span>
+          <b className="pt-num" style={stats.low.length ? { color: 'var(--wax)' } : undefined}>
+            {dash ?? stats.low.length}
+          </b>
+          <small className={stats.low.length ? 'is-wax' : undefined}>{t('portal.admin.lowQuotaHint')}</small>
+        </div>
+      </section>
+
+      <div className="pt-grid pt-grid--split">
+        <div className="pt-grid">
+          <section className="pt-sheet pt-rise">
+            <div className="pt-sheet__head">
+              <h2 className="pt-h2">{t('portal.admin.lowTitle')}</h2>
+              <Link to="/super-admin/merchants" className="pt-link">
+                {t('portal.admin.openMerchants')}
+                <ArrowRight className="pt-flip" />
+              </Link>
+            </div>
+            {loading ? (
+              <SkeletonRows />
+            ) : stats.low.length > 0 ? (
+              <ul className="pt-list">
+                {stats.low.slice(0, LIST_SIZE).map((m) => {
+                  const total = m.totalQuota ?? 0;
+                  const used = total > 0 ? Math.min(1, (m.usedLinks ?? 0) / total) : 1;
+                  return (
+                    <li key={m.id} className="pt-mrow">
+                      <div className="pt-mrow__name">
+                        <b>{name(m)}</b>
+                        <small>
+                          {total > 0
+                            ? t('portal.admin.remainingOf', { remaining: remainingOf(m), total })
+                            : t('portal.admin.noQuota')}
+                        </small>
+                      </div>
+                      <div className="pt-meter is-low" aria-hidden="true">
+                        <i style={{ width: `${used * 100}%` }} />
+                      </div>
+                      <span className="pt-mrow__value" style={{ color: 'var(--wax)' }}>
+                        {remainingOf(m)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              !loadError && <p className="pt-note">{t('portal.admin.lowNone')}</p>
+            )}
+          </section>
+
+          <section className="pt-sheet pt-rise">
+            <div className="pt-sheet__head">
+              <h2 className="pt-h2">{t('portal.admin.pendingTitle')}</h2>
+              <small>{unknown ? '' : stats.pending.length}</small>
+            </div>
+            {loading ? (
+              <SkeletonRows count={2} />
+            ) : stats.pending.length > 0 ? (
+              <ul className="pt-list">
+                {stats.pending.slice(0, LIST_SIZE).map((m) => (
+                  <li key={m.id} className="pt-row">
+                    <span className="pt-row__no" aria-hidden="true">
+                      <UserRoundPlus size={18} />
+                    </span>
+                    <div className="pt-row__main">
+                      <b>{name(m)}</b>
+                      <div className="pt-row__sub">
+                        <span>{m.email}</span>
+                        {m.createdAt && <span>{formatRelative(m.createdAt, lang)}</span>}
+                      </div>
+                    </div>
+                    <span className="pt-pill pt-pill--off">{t('superAdmin.pendingPasswordSet')}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !loadError && <p className="pt-note">{t('portal.admin.pendingNone')}</p>
+            )}
+          </section>
+        </div>
+
+        <section className="pt-sheet pt-rise">
+          <div className="pt-sheet__head">
+            <h2 className="pt-h2">{t('portal.admin.busiestTitle')}</h2>
+            <small>{t('portal.admin.busiestHint')}</small>
+          </div>
+          {loading ? (
+            <SkeletonRows count={4} />
+          ) : stats.busiest.length > 0 ? (
+            <ul className="pt-list">
+              {stats.busiest.map((m) => (
+                <li key={m.id} className="pt-mrow" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+                  <div className="pt-mrow__name">
+                    <b>{name(m)}</b>
+                    <small>
+                      {m.isUnlimitedQuota ? (
+                        <>
+                          <InfinityIcon size={12} style={{ verticalAlign: '-2px' }} /> {t('merchant.unlimited', 'Unlimited')}
+                        </>
+                      ) : (
+                        t('portal.admin.remainingOf', { remaining: remainingOf(m), total: m.totalQuota ?? 0 })
+                      )}
+                    </small>
+                  </div>
+                  <span className="pt-mrow__value">{formatCount(m.usedLinks ?? 0, lang)}</span>
+                  <div className="pt-meter" aria-hidden="true" style={{ gridColumn: '1 / -1' }}>
+                    <i style={{ width: `${((m.usedLinks ?? 0) / busiestMax) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !loadError && <p className="pt-note">{t('portal.admin.busiestNone')}</p>
+          )}
+        </section>
       </div>
     </div>
   );
 };
+
+const SkeletonRows: React.FC<{ count?: number }> = ({ count = 3 }) => (
+  <ul className="pt-list" aria-hidden="true">
+    {Array.from({ length: count }, (_, i) => (
+      <li key={i} className="pt-mrow">
+        <span className="pt-skel" style={{ width: '70%', height: 16 }} />
+        <span className="pt-skel" style={{ height: 6 }} />
+        <span className="pt-skel" style={{ width: 32, height: 16 }} />
+      </li>
+    ))}
+  </ul>
+);
 
 export default SuperAdminDashboardPage;

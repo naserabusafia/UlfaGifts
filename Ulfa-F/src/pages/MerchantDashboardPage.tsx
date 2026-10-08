@@ -1,13 +1,50 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useMerchantDashboard, type MerchantDashboardProps } from '../features/dashboard';
 import {
-  TrendingUp,
-  Plus,
-  PackageOpen
-} from 'lucide-react';
+  merchantOrderService,
+  orderGiftCount,
+  orderSetupProgress,
+  type MerchantOrder,
+  type MerchantOrdersResponse,
+} from '../features/orders/services/merchantOrderService';
+import { formatDay, formatRelative } from '../features/dashboard/format';
+import '../features/dashboard/portal.css';
+import { ArrowRight, BellRing, Gift, Inbox, Infinity as InfinityIcon, Nfc, Phone, Plus, RefreshCw } from 'lucide-react';
+
+const TICKS = 40;
+const RECENT_LIMIT = 5;
+const NEW_LIMIT = 5;
+const LOW_SHARE = 0.15;
+
+interface RecentRow {
+  key: string;
+  label: string;
+  customerName: string;
+  customerPhone?: string;
+  done: boolean;
+  cancelled?: boolean;
+  createdAt?: string;
+  cards?: number;
+  gift?: ReturnType<typeof orderSetupProgress>;
+  /** Opens the order's details on the orders page. */
+  to?: string;
+}
+
+const toRow = (order: MerchantOrder): RecentRow => ({
+  key: order.id,
+  label: `#${order.orderNumber}`,
+  customerName: order.customerName,
+  customerPhone: order.customerPhone,
+  done: order.status === 'COMPLETED',
+  cancelled: order.status === 'CANCELLED',
+  createdAt: order.createdAt,
+  cards: orderGiftCount(order.items),
+  gift: orderSetupProgress(order),
+  to: `/merchant/orders?order=${order.id}`,
+});
 
 export const MerchantDashboardPage: React.FC<MerchantDashboardProps> = ({
   initialData,
@@ -19,12 +56,13 @@ export const MerchantDashboardPage: React.FC<MerchantDashboardProps> = ({
   recentOrders: recentOrdersProp,
   onAddNewOrder,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data } = useMerchantDashboard(initialData);
+  const lang = i18n.language;
 
-  // 1. Store / Company Name (reads from API user profile companyName or name or storeName)
+  // Store / company name (API profile companyName, name, or storeName)
   const storeName =
     initialData?.storeName ||
     data.storeName ||
@@ -33,7 +71,7 @@ export const MerchantDashboardPage: React.FC<MerchantDashboardProps> = ({
     user?.email?.split('@')[0] ||
     t('merchant.defaultStoreName', 'Al Baraka Store');
 
-  // 2. Derive isUnlimitedQuota explicitly from props, initialData, data hook, or user profile
+  // Quota: props first, then initialData, the dashboard hook, then the user profile
   const isUnlimitedExplicitProp =
     isUnlimitedQuotaProp ??
     initialData?.isUnlimitedQuota ??
@@ -46,161 +84,312 @@ export const MerchantDashboardPage: React.FC<MerchantDashboardProps> = ({
   const isUnlimited =
     typeof isUnlimitedExplicitProp === 'boolean'
       ? isUnlimitedExplicitProp
-      : (totalQuota as any) === 'unlimited' || (directAvailable as any) === 'unlimited';
+      : totalQuota === 'unlimited' || directAvailable === 'unlimited';
 
-  // 3. Used Links & Total Orders from props/user
   const usedLinks = usedLinksProp ?? initialData?.usedLinks ?? data.usedLinks ?? user?.usedLinks ?? 0;
-  const totalOrders = totalOrdersProp ?? initialData?.totalOrders ?? data.totalOrders ?? 0;
-  const recentOrders = recentOrdersProp ?? initialData?.recentOrders ?? data.recentOrders ?? [];
 
-  // 4. Calculate Available Links = totalQuota - usedLinks (when isUnlimited is false)
-  let calculatedAvailableLinks: number = 0;
+  // Available = totalQuota - usedLinks when the quota is limited
+  let availableLinks = 0;
   if (typeof directAvailable === 'number') {
-    calculatedAvailableLinks = directAvailable;
+    availableLinks = directAvailable;
   } else if (typeof totalQuota === 'number') {
-    calculatedAvailableLinks = Math.max(0, totalQuota - usedLinks);
+    availableLinks = Math.max(0, totalQuota - usedLinks);
   }
+  const quotaTotal = typeof totalQuota === 'number' ? totalQuota : availableLinks + usedLinks;
+  const share = quotaTotal > 0 ? availableLinks / quotaTotal : 0;
+  const isLow = !isUnlimited && share <= LOW_SHARE;
+  const litTicks = isUnlimited ? TICKS : Math.round(share * TICKS);
+
+  // Recent orders: passed in, or loaded from the merchant orders API
+  const providedOrders = recentOrdersProp ?? initialData?.recentOrders;
+  const [orders, setOrders] = useState<MerchantOrdersResponse | null>(null);
+  const [newOrders, setNewOrders] = useState<MerchantOrder[]>([]);
+  const [loading, setLoading] = useState(!providedOrders);
+  const [loadError, setLoadError] = useState(false);
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const [recent, pendingOrders] = await Promise.all([
+        merchantOrderService.getOrders({ page: 1, limit: RECENT_LIMIT }),
+        merchantOrderService.getOrders({ page: 1, limit: NEW_LIMIT, status: 'PENDING' }),
+      ]);
+      setOrders(recent);
+      setNewOrders(pendingOrders.items);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const reloadOrders = () => {
+    setLoading(true);
+    setLoadError(false);
+    fetchOrders();
+  };
+
+  useEffect(() => {
+    if (!providedOrders) fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchOrders]);
+
+  const rows: RecentRow[] = providedOrders
+    ? providedOrders.map((order) => ({
+        key: order.id,
+        label: order.id,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        done: order.status === 'Completed',
+        createdAt: order.date,
+      }))
+    : (orders?.items ?? []).map(toRow);
+
+  const summary = orders?.summary;
+  const totalOrders = totalOrdersProp ?? initialData?.totalOrders ?? data.totalOrders ?? summary?.total ?? 0;
+  const pending = summary?.pending;
+  const completed = summary?.completed;
+
+  const giftLabel = (gift: NonNullable<RecentRow['gift']>) => {
+    if (gift.total > 1) return t('portal.merchant.giftReadyOf', { ready: gift.ready, total: gift.total });
+    if (gift.ready) return t('merchantOrders.setupReady');
+    if (gift.started) return t('merchantOrders.setupInProgress');
+    return t('merchantOrders.setupNotStarted');
+  };
+
+  const renderRow = (row: RecentRow) => {
+    const content = (
+      <>
+        <span className="pt-row__no">{row.label}</span>
+        <div className="pt-row__main">
+          <b>{row.customerName}</b>
+          <div className="pt-row__sub">
+            {row.createdAt && <span>{formatRelative(row.createdAt, lang)}</span>}
+            {row.cards !== undefined && (
+              <span>
+                <Nfc />
+                {t('portal.merchant.cards', { count: row.cards })}
+              </span>
+            )}
+            {!row.cancelled && row.gift?.known && row.gift.total > 0 && (
+              <span className={row.gift.ready === row.gift.total ? 'pt-gift is-ready' : 'pt-gift'}>
+                <Gift />
+                {giftLabel(row.gift)}
+              </span>
+            )}
+            {row.customerPhone && (
+              <span dir="ltr">
+                <Phone />
+                {row.customerPhone}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="pt-row__end">
+          {row.cancelled ? (
+            <span className="pt-pill pt-pill--off">{t('merchantOrders.cancelled')}</span>
+          ) : (
+            <span className={`pt-pill ${row.done ? 'pt-pill--done' : 'pt-pill--wait'}`}>
+              {row.done ? t('merchantOrders.completed') : t('merchantOrders.pending')}
+            </span>
+          )}
+        </div>
+      </>
+    );
+    return (
+      <li key={row.key}>
+        {row.to ? (
+          <Link to={row.to} className="pt-row pt-row--link">{content}</Link>
+        ) : (
+          <div className="pt-row">{content}</div>
+        )}
+      </li>
+    );
+  };
+
+  const addOrder = () => (onAddNewOrder ? onAddNewOrder() : navigate('/merchant/orders/new'));
+
+  const lede = () => {
+    if (pending === undefined) return t('portal.merchant.ledeDefault');
+    if (totalOrders === 0) return t('portal.merchant.ledeFirst');
+    if (pending === 0) return t('portal.merchant.ledeAllDone');
+    return (
+      <>
+        {t('portal.merchant.ledePendingBefore')} <b>{pending}</b> {t('portal.merchant.ledePendingAfter')}
+      </>
+    );
+  };
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 font-sans text-slate-800 dark:text-slate-100 transition-colors pb-8">
-      {/* 1. Header Banner Card */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs dark:border-border dark:bg-card transition-all">
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-foreground">
-          {t('merchant.welcomePrefix', 'Welcome back,')}{' '}
-          <span className="text-blue-700 font-extrabold dark:text-blue-400">
-            {storeName}
-          </span>
-        </h2>
-        <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-muted-foreground">
-          {t('merchant.welcomeSub', "Here's a quick look at your store's performance today.")}
-        </p>
-      </div>
+    <div className="pt">
+      <header className="pt-hero pt-rise">
+        <div>
+          <p className="pt-eyebrow">{formatDay(new Date(), lang)}</p>
+          <h1 className="pt-title">
+            {t('portal.merchant.greeting')} <em>{storeName}</em>
+          </h1>
+          <p className="pt-lede">{lede()}</p>
+        </div>
+        <div className="pt-hero__actions">
+          <button type="button" onClick={addOrder} className="pt-btn pt-btn--wax">
+            <Plus strokeWidth={2.4} />
+            <span>{t('portal.merchant.newOrder')}</span>
+          </button>
+        </div>
+      </header>
 
-      {/* 2. Responsive 3-Column Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Available Links Card */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs dark:border-border dark:bg-card transition-all flex flex-col justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">
-              {t('merchant.availableLinks', 'Available Links')}
+      <div className="pt-grid pt-grid--top pt-rise">
+        <section className={`pt-card${isLow ? ' is-low' : ''}`} aria-label={t('merchant.availableLinks', 'Available Links')}>
+          <div className="pt-card__top">
+            <span className="pt-card__label">{t('portal.merchant.remainingLinks')}</span>
+            <span className="pt-card__chip">
+              <Nfc />
+              {isUnlimited
+                ? t('portal.merchant.unlimited')
+                : availableLinks === 0
+                  ? t('portal.merchant.emptyChip')
+                  : isLow
+                    ? t('portal.merchant.lowChip')
+                    : t('portal.merchant.okChip')}
             </span>
           </div>
 
-          <div className="mt-4 flex items-baseline gap-2">
+          <div className="pt-card__figure">
             {isUnlimited ? (
-              /* When Unlimited: Display ∞ (Infinity Symbol) directly as the main value */
-              <span className="text-3xl sm:text-4xl font-black text-indigo-600 dark:text-indigo-400 leading-none">
-                ∞
-              </span>
+              <InfinityIcon className="pt-infinity" aria-label={t('merchant.unlimited', 'Unlimited')} />
             ) : (
-              /* When Limited: Display calculated available links count (totalQuota - usedLinks) */
-              <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-foreground tracking-tight">
-                {calculatedAvailableLinks}
-              </span>
+              <span className="pt-num">{availableLinks}</span>
             )}
-          </div>
-        </div>
-
-        {/* Used Links Card */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs dark:border-border dark:bg-card transition-all flex flex-col justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">
-              {t('merchant.used', 'Used Links')}
+            <span>
+              {isUnlimited
+                ? t('portal.merchant.unlimitedHint')
+                : t('portal.merchant.ofTotal', { total: quotaTotal })}
             </span>
           </div>
 
-          <div className="mt-4">
-            <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-foreground tracking-tight">
-              {usedLinks}
+          <div>
+            <div
+              className="pt-ticks"
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={isUnlimited ? TICKS : quotaTotal}
+              aria-valuenow={isUnlimited ? TICKS : availableLinks}
+            >
+              {Array.from({ length: TICKS }, (_, i) => (
+                <i key={i} className={i < litTicks ? 'on' : undefined} style={{ '--i': i } as React.CSSProperties} />
+              ))}
             </div>
-            {data.usedPercentageChange !== undefined && (
-              <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <TrendingUp className="h-3.5 w-3.5" />
-                <span>
-                  +{data.usedPercentageChange}% {t('merchant.fromYesterday', 'from yesterday')}
-                </span>
+            <div className="pt-card__meta" style={{ marginTop: 10 }}>
+              <span>
+                {t('portal.merchant.usedLinks')} <b>{usedLinks}</b>
+                {data.usedPercentageChange !== undefined && ` · +${data.usedPercentageChange}%`}
+              </span>
+              {!isUnlimited && (
+                <Link to="/merchant/quota" className="pt-link">
+                  {isLow ? t('portal.merchant.lowHint') : t('portal.merchant.requestMore')}
+                  <ArrowRight className="pt-flip" />
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="pt-sheet">
+          <div className="pt-sheet__head">
+            <h2 className="pt-h2">{t('portal.merchant.ordersTitle')}</h2>
+          </div>
+          <div className="pt-facts">
+            <div className="pt-fact">
+              <span>{t('merchant.totalOrders', 'Total Orders')}</span>
+              <b className="pt-num">{!providedOrders && (loading || loadError) && totalOrdersProp === undefined ? '–' : totalOrders}</b>
+            </div>
+            <Link to="/merchant/orders?status=PENDING" className="pt-fact pt-fact--wax pt-fact--link">
+              <span>{t('merchantOrders.pending')}</span>
+              <b className="pt-num">{pending ?? '–'}</b>
+            </Link>
+            <div className="pt-fact">
+              <span>{t('merchantOrders.completed')}</span>
+              <b className="pt-num">{completed ?? '–'}</b>
+            </div>
+            {summary && summary.total > 0 && (
+              <div>
+                <div className="pt-split" aria-hidden="true">
+                  <i style={{ width: `${(summary.completed / summary.total) * 100}%` }} />
+                  <i style={{ width: `${(summary.pending / summary.total) * 100}%` }} />
+                </div>
+                <div className="pt-legend">
+                  <span>{t('merchantOrders.completed')}</span>
+                  <span>{t('merchantOrders.pending')}</span>
+                </div>
               </div>
             )}
           </div>
-        </div>
-
-        {/* Total Orders Card */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs dark:border-border dark:bg-card transition-all flex flex-col justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">
-              {t('merchant.totalOrders', 'Total Orders')}
-            </span>
-          </div>
-
-          <div className="mt-4">
-            <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-foreground tracking-tight">
-              {totalOrders}
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
 
-      {/* 3. Single Add New Order Button */}
-      <button
-        onClick={() => onAddNewOrder ? onAddNewOrder() : navigate('/merchant/orders/new')}
-        className="w-full rounded-xl bg-blue-700 hover:bg-blue-800 active:scale-[0.99] text-white py-3.5 px-4 font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-blue-700/20 transition-all cursor-pointer"
-      >
-        <Plus className="h-4.5 w-4.5 stroke-[3]" />
-        <span>{t('merchant.addNewOrder', 'Add New Order')}</span>
-      </button>
+      {!providedOrders && newOrders.length > 0 && (
+        <section className="pt-sheet pt-sheet--new pt-rise" aria-labelledby="pt-new-orders">
+          <div className="pt-sheet__head">
+            <h2 id="pt-new-orders" className="pt-h2">
+              <BellRing className="pt-h2__icon" />
+              {t('portal.merchant.newRequests')}
+              <span className="pt-count">{pending ?? newOrders.length}</span>
+            </h2>
+            <Link to="/merchant/orders?status=PENDING" className="pt-link">
+              {t('portal.merchant.allNewRequests')}
+              <ArrowRight className="pt-flip" />
+            </Link>
+          </div>
+          <ul className="pt-list">{newOrders.map((order) => renderRow(toRow(order)))}</ul>
+        </section>
+      )}
 
-      {/* 4. Recent Orders Card */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs dark:border-border dark:bg-card transition-all space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-foreground tracking-tight">
-            {t('merchant.recentOrders', 'Recent Orders')}
-          </h3>
-          <span className="text-xs text-slate-400 font-medium">
-            {recentOrders.length} {t('merchant.ordersCount', 'Orders')}
-          </span>
+      <section className="pt-sheet pt-rise">
+        <div className="pt-sheet__head">
+          <h2 className="pt-h2">{t('merchant.recentOrders', 'Recent Orders')}</h2>
+          <Link to="/merchant/orders" className="pt-link">
+            {t('portal.merchant.allOrders')}
+            <ArrowRight className="pt-flip" />
+          </Link>
         </div>
 
-        {recentOrders.length > 0 ? (
-          <div className="divide-y divide-slate-100 dark:divide-border">
-            {recentOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0"
-              >
-                <div className="space-y-0.5">
-                  <div className="text-sm font-bold text-slate-900 dark:text-foreground">
-                    {order.id}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-muted-foreground">
-                    {order.customerName}
-                  </div>
-                  {order.customerPhone && (
-                    <div dir="ltr" className="mt-0.5 text-start text-[10px] text-slate-400 dark:text-muted-foreground">
-                      {order.customerPhone}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  {order.status === 'Completed' ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                      {t('merchant.completed', 'Completed')}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-amber-50 px-3.5 py-1 text-xs font-bold text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                      {t('merchant.processing', 'Processing')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-8 text-center text-slate-400">
-            <PackageOpen className="h-10 w-10 stroke-[1.5] text-slate-300 dark:text-slate-600 mb-2" />
-            <p className="text-xs font-medium">لا توجد طلبات حالية</p>
+        {loadError && (
+          <div className="pt-error" role="alert">
+            <span>{t('merchantOrders.loadError')}</span>
+            <button type="button" className="pt-btn pt-btn--ghost pt-btn--sm" onClick={reloadOrders}>
+              <RefreshCw />
+              {t('merchantOrders.refresh')}
+            </button>
           </div>
         )}
-      </div>
+
+        {loading ? (
+          <ul className="pt-list" aria-busy="true">
+            {Array.from({ length: 3 }, (_, i) => (
+              <li key={i} className="pt-row">
+                <span className="pt-skel" style={{ width: 48, height: 16 }} />
+                <span className="pt-skel" style={{ width: '60%', height: 16 }} />
+                <span className="pt-skel" style={{ width: 70, height: 22, borderRadius: 999 }} />
+              </li>
+            ))}
+          </ul>
+        ) : rows.length > 0 ? (
+          <ul className="pt-list">
+            {rows.map(renderRow)}
+          </ul>
+        ) : (
+          !loadError && (
+            <div className="pt-empty">
+              <Inbox />
+              <p>{t('merchantOrders.emptyFirst')}</p>
+              <button type="button" onClick={addOrder} className="pt-btn pt-btn--ghost pt-btn--sm">
+                <Plus />
+                {t('portal.merchant.newOrder')}
+              </button>
+            </div>
+          )
+        )}
+      </section>
     </div>
   );
 };

@@ -163,6 +163,17 @@ key returns the original order without consuming quota twice. API keys inherit
 the merchant's active/inactive status and quota rules. Never expose an API key
 in browser-side JavaScript; call this endpoint from the website's server.
 
+When the website cancels its order or takes it back as a return, it cancels the
+Ulfa order by the same `Idempotency-Key`:
+
+```bash
+curl --request POST 'http://localhost:3000/api/v1/integrations/v1/orders/cancel'   --header 'X-API-Key: ulfa_live_...'   --header 'Content-Type: application/json'   --data '{ "idempotencyKey": "webshop-order-9921" }'
+```
+
+Cancelling locks the order's links and returns their quota, exactly like
+cancelling from the merchant portal. Repeating the call is harmless; an unknown
+key answers `404 ORDER_NOT_FOUND`.
+
 ## Customer phone schema migration
 
 For an existing database with `DB_SYNCHRONIZE=false`, run
@@ -181,3 +192,30 @@ For an existing database with `DB_SYNCHRONIZE=false`, run
 migrations. It creates the shared `sections` catalog and `item_sections`, which
 stores per-NFC-item section visibility and display order. It does not create
 any section records.
+
+## Lock reason and shared links migration
+
+For an existing database with `DB_SYNCHRONIZE=false`, run
+`migrations/20261011_add_lock_reason_and_gift_count.sql` once. It adds
+`nfc_items.lock_reason` (optional note shown to the buyer and the recipient
+while an item is locked) and `nfc_items.gift_count` (how many gifts share an
+item's link). Orders created with `"linkMode": "SHARED"` get one link for all
+their items and use one quota unit; omitting `linkMode` keeps one link per item.
+
+## Order cancellation migration
+
+For an existing database with `DB_SYNCHRONIZE=false`, run
+`migrations/20261012_add_order_cancellation.sql` once. It adds the `CANCELLED`
+order status, `orders.cancelled_at`, `orders.content_purged_at`,
+`nfc_items.quota_charged` and `nfc_items.locked_by_cancel`.
+
+Cancelling an order (merchant: `PATCH /merchant/orders/:id/status` with
+`"status": "CANCELLED"`) locks every link and gives back the quota units its
+items used. Setting the status back to `PENDING` or `COMPLETED` within
+`CANCELLED_CONTENT_RETENTION_HOURS` (default 72) restores it: the quota is
+charged again (refused with `NFC_QUOTA_EXCEEDED` when there is not enough), the
+links the cancellation locked are unlocked, and the scheduled deletion is
+dropped. After that window an hourly job deletes the buyer's photos, videos,
+recordings and letter from storage and the database, and the order can no
+longer be restored (`RESTORE_WINDOW_PASSED`). The order and its items stay for
+the records.

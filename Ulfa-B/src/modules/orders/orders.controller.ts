@@ -19,6 +19,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateMerchantOrderDto } from './dto/create-merchant-order.dto';
+import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import { OrdersQueryDto } from './dto/orders-query.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateMerchantOrderStatusDto } from './dto/update-merchant-order-status.dto';
@@ -35,6 +36,13 @@ export class OrdersController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(createOrderDto);
+  }
+
+  // A full order with items and links, the same as a merchant creates.
+  @Post('full')
+  @HttpCode(HttpStatus.CREATED)
+  createFull(@Body() dto: CreateAdminOrderDto) {
+    return this.ordersService.createForAdmin(dto);
   }
 
   @Get()
@@ -116,6 +124,7 @@ export class MerchantOrdersController {
       orderId,
       itemId,
       dto.isLocked,
+      dto.lockReason,
     );
   }
 }

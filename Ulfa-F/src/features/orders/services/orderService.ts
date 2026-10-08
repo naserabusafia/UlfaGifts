@@ -9,7 +9,7 @@ import type {
 import { mockOrderService } from './mockOrderService';
 
 // TEMPORARY MOCK SWITCH: set this to false (or remove mockOrderService.ts) to use the real API.
-const USE_TEMPORARY_MOCK_ORDERS = true;
+const USE_TEMPORARY_MOCK_ORDERS = false;
 
 const unwrap = <T>(responseData: { data?: T } | T): T => {
   if (

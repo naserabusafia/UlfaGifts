@@ -31,7 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token user no longer exists');
     }
 
-    if (user.status !== UserStatus.ACTIVE) {
+    // Accounts that still have to set their password get through here;
+    // JwtAuthGuard limits them to the routes that let them do it.
+    if (
+      user.status !== UserStatus.ACTIVE &&
+      user.status !== UserStatus.PENDING_PASSWORD_SET
+    ) {
       throw new UnauthorizedException('ACCOUNT_NOT_ACTIVE');
     }
 

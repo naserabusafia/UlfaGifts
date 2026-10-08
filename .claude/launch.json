@@ -53,6 +53,21 @@
         "--strictPort"
       ],
       "port": 5176
+    },
+    {
+      "name": "coming-soon-studio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "video/coming-soon",
+        "run",
+        "studio",
+        "--",
+        "--no-open",
+        "--port",
+        "3123"
+      ],
+      "port": 3123
     }
   ]
 }

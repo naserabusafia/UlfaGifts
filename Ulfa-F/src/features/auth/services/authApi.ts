@@ -58,3 +58,11 @@ export async function getProfileApi(token?: string): Promise<User> {
 
   return fetchedUser;
 }
+
+/**
+ * Change the signed-in user's password via PATCH /auth/password.
+ * A wrong current password answers 400 with code CURRENT_PASSWORD_INCORRECT.
+ */
+export async function changePasswordApi(currentPassword: string, newPassword: string): Promise<void> {
+  await apiClient.patch('/auth/password', { currentPassword, newPassword });
+}

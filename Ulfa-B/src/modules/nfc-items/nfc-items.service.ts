@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { In, Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { OrderStatus } from '../orders/entities/order.entity';
 import { OrdersService } from '../orders/orders.service';
 import { CreateNfcItemDto } from './dto/create-nfc-item.dto';
 import { UpdateNfcItemDto } from './dto/update-nfc-item.dto';
@@ -44,6 +45,14 @@ import {
 
 const BCRYPT_ROUNDS = 10;
 const LEGACY_SHA256 = /^[0-9a-f]{64}$/;
+
+/** 403 for a paused item; carries the merchant's note when there is one. */
+export const lockedItemError = (item: Pick<NfcItem, 'lockReason'>) =>
+  new ForbiddenException({
+    message: 'NFC_ITEM_INACTIVE',
+    code: 'NFC_ITEM_INACTIVE',
+    reason: item.lockReason ?? null,
+  });
 
 @Injectable()
 export class NfcItemsService {
@@ -266,6 +275,12 @@ export class NfcItemsService {
 
     // Validate that order exists
     const order = await this.ordersService.findOne(orderId);
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException({
+        message: 'ORDER_CANCELLED',
+        code: 'ORDER_CANCELLED',
+      });
+    }
 
     // Check for unique nfc_id conflict
     const existingNfc = await this.nfcItemRepository.findOne({
@@ -301,6 +316,7 @@ export class NfcItemsService {
     const nfcItem = this.nfcItemRepository.create({
       productName: itemData.productName,
       nfcId: itemData.nfcId,
+      quotaCharged: false,
       viewerAuthType: itemData.viewerAuthType ?? undefined,
       viewerAuthPrompt: itemData.viewerAuthPrompt ?? undefined,
       occasion,
@@ -388,8 +404,16 @@ export class NfcItemsService {
       throw new NotFoundException(`NFC Item with NFC ID "${nfcId}" not found`);
     }
 
+    // A paused gift still answers, so the page can say why (in the gift's own
+    // language and theme) instead of failing like a broken link.
     if (item.isLocked) {
-      throw new ForbiddenException('NFC_ITEM_INACTIVE');
+      return {
+        nfcId: item.nfcId,
+        locked: true,
+        lockReason: item.lockReason ?? null,
+        viewerAuthType: ViewerAuthType.NONE,
+        ...this.appearance(item),
+      };
     }
 
     return {
@@ -421,7 +445,7 @@ export class NfcItemsService {
     }
 
     if (item.isLocked) {
-      throw new ForbiddenException('NFC_ITEM_INACTIVE');
+      throw lockedItemError(item);
     }
 
     if (this.isPreparing(item)) {

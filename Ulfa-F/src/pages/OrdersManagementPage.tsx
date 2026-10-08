@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import {
+  Ban,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Edit3,
+  ExternalLink,
   Eye,
   FilterX,
   Link2,
@@ -28,17 +31,22 @@ import type {
 import { userService } from '../features/dashboard/services/userService';
 import type { MerchantUser } from '../features/dashboard/types';
 import { CustomerPhoneInput } from '../features/orders/components/CustomerPhoneInput';
+import { GiftPieces } from '../features/orders/components/GiftPieces';
 import { normalizeCustomerPhoneForForm } from '../features/orders/utils/customerPhone';
+
+const STATUSES: OrderStatus[] = ['PENDING', 'COMPLETED', 'CANCELLED'];
 
 const EMPTY_SUMMARY: OrdersSummary = {
   total: 0,
   pending: 0,
   completed: 0,
+  cancelled: 0,
 };
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
   PENDING: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
   COMPLETED: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
+  CANCELLED: 'border-border bg-muted text-muted-foreground',
 };
 
 const getApiErrorMessage = (error: unknown, fallback: string): string => {
@@ -53,6 +61,7 @@ const getApiErrorMessage = (error: unknown, fallback: string): string => {
 
 export const OrdersManagementPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const isArabic = i18n.language.startsWith('ar');
 
   const [orders, setOrders] = useState<SystemOrder[]>([]);
@@ -78,18 +87,10 @@ export const OrdersManagementPage: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
-    merchantId: '',
-    customerName: '',
-    customerPhone: '',
-    externalOrderId: '',
-    status: 'PENDING' as OrderStatus,
-  });
-  const [createForm, setCreateForm] = useState({
     merchantId: '',
     customerName: '',
     customerPhone: '',
@@ -102,6 +103,7 @@ export const OrdersManagementPage: React.FC = () => {
       const labels: Record<OrderStatus, string> = {
         PENDING: t('ordersAdmin.pending', 'Pending'),
         COMPLETED: t('ordersAdmin.completed', 'Completed'),
+        CANCELLED: t('ordersAdmin.cancelled'),
       };
       return labels[status];
     },
@@ -223,38 +225,6 @@ export const OrdersManagementPage: React.FC = () => {
     setIsEditOpen(true);
   };
 
-  const handleOpenCreate = () => {
-    setCreateForm({
-      merchantId: merchants[0]?.id || '',
-      customerName: '',
-      customerPhone: '',
-      externalOrderId: '',
-      status: 'PENDING',
-    });
-    setIsCreateOpen(true);
-  };
-
-  const handleCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await orderService.createOrder({
-        ...createForm,
-        externalOrderId: createForm.externalOrderId || undefined,
-      });
-      setIsCreateOpen(false);
-      showToast(t('ordersAdmin.createSuccess', 'Order created successfully.'));
-      setPage(1);
-      setRefreshKey((value) => value + 1);
-    } catch (error) {
-      showToast(
-        getApiErrorMessage(error, t('ordersAdmin.createError', 'Could not create the order.')),
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleSaveEdit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedOrder) return;
@@ -327,6 +297,12 @@ export const OrdersManagementPage: React.FC = () => {
         icon: CheckCircle2,
         className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
       },
+      {
+        label: t('ordersAdmin.cancelled'),
+        value: summary.cancelled ?? 0,
+        icon: Ban,
+        className: 'bg-muted text-muted-foreground',
+      },
     ],
     [summary, t],
   );
@@ -388,8 +364,7 @@ export const OrdersManagementPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={handleOpenCreate}
-              disabled={merchants.length === 0}
+              onClick={() => navigate('/super-admin/orders/new')}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-xs font-extrabold text-primary-foreground shadow-md transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
@@ -399,7 +374,7 @@ export const OrdersManagementPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -437,8 +412,7 @@ export const OrdersManagementPage: React.FC = () => {
             className="rounded-xl border border-input bg-background px-3 py-2.5 text-xs font-semibold text-foreground outline-none focus:border-primary"
           >
             <option value="ALL">{t('ordersAdmin.allStatuses', 'All statuses')}</option>
-            <option value="PENDING">{statusLabel('PENDING')}</option>
-            <option value="COMPLETED">{statusLabel('COMPLETED')}</option>
+            {STATUSES.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
           </select>
 
           <select
@@ -555,7 +529,7 @@ export const OrdersManagementPage: React.FC = () => {
                   {orders.map((order) => (
                     <tr key={order.id} className="transition hover:bg-muted/35">
                       <td className="px-5 py-4">
-                        <p className="font-bold text-foreground">{order.externalOrderId || `#${order.id.slice(0, 8)}`}</p>
+                        <p className="font-bold text-foreground">{order.externalOrderId || `#${order.orderNumber}`}</p>
                         <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{order.id}</p>
                       </td>
                       <td className="px-5 py-4"><p className="font-semibold text-foreground">{order.customerName}</p><p dir="ltr" className="mt-0.5 text-start text-[10px] text-muted-foreground">{order.customerPhone || '—'}</p></td>
@@ -573,8 +547,7 @@ export const OrdersManagementPage: React.FC = () => {
                             onChange={(event) => void handleQuickStatus(order, event.target.value as OrderStatus)}
                             className={`rounded-full border px-3 py-1.5 text-[10px] font-extrabold outline-none ${STATUS_STYLES[order.status]}`}
                           >
-                            <option value="PENDING">{statusLabel('PENDING')}</option>
-                            <option value="COMPLETED">{statusLabel('COMPLETED')}</option>
+                            {STATUSES.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
                           </select>
                         </div>
                       </td>
@@ -596,7 +569,7 @@ export const OrdersManagementPage: React.FC = () => {
                 <div key={order.id} className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-extrabold text-foreground">{order.externalOrderId || `#${order.id.slice(0, 8)}`}</p>
+                      <p className="text-sm font-extrabold text-foreground">{order.externalOrderId || `#${order.orderNumber}`}</p>
                       <p className="mt-1 text-xs font-semibold text-foreground">{order.customerName}</p>
                       <p dir="ltr" className="mt-0.5 text-start text-[10px] text-muted-foreground">{order.customerPhone || '—'}</p>
                     </div>
@@ -612,8 +585,7 @@ export const OrdersManagementPage: React.FC = () => {
                     onChange={(event) => void handleQuickStatus(order, event.target.value as OrderStatus)}
                     className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs font-bold text-foreground"
                   >
-                    <option value="PENDING">{statusLabel('PENDING')}</option>
-                    <option value="COMPLETED">{statusLabel('COMPLETED')}</option>
+                    {STATUSES.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
                   </select>
                   <div className="grid grid-cols-3 gap-2">
                     <button onClick={() => void handleOpenDetails(order)} className="inline-flex items-center justify-center gap-1 rounded-xl border border-border py-2 text-xs font-bold text-foreground"><Eye className="h-3.5 w-3.5" />{t('ordersAdmin.view', 'View')}</button>
@@ -667,7 +639,7 @@ export const OrdersManagementPage: React.FC = () => {
                 <div>
                   <div className="mb-3 flex items-center justify-between"><h3 className="flex items-center gap-2 text-sm font-extrabold text-foreground"><Link2 className="h-4 w-4 text-primary" />{t('ordersAdmin.generatedItems', 'Generated NFC items')}</h3><span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-bold text-muted-foreground">{selectedOrder.nfcItems?.length || 0}</span></div>
                   {selectedOrder.nfcItems?.length ? (
-                    <div className="space-y-2">{selectedOrder.nfcItems.map((item) => <div key={item.id} className="rounded-2xl border border-border p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-foreground">{item.productName}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">NFC: {item.nfcId}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${item.isLocked ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-600'}`}>{item.isLocked ? t('ordersAdmin.locked', 'Locked') : t('ordersAdmin.active', 'Active')}</span></div></div>)}</div>
+                    <div className="space-y-2">{selectedOrder.nfcItems.map((item) => <div key={item.id} className="rounded-2xl border border-border p-3"><div className="flex items-start justify-between gap-3"><div><GiftPieces item={item} className="text-sm font-bold text-foreground" />{(item.giftCount ?? 1) > 1 && <p className="mt-1.5 text-[10px] font-bold text-primary">{t('merchantOrders.sharedLink', { count: item.giftCount })}</p>}<p className="mt-1 font-mono text-[10px] text-muted-foreground">NFC: {item.nfcId}</p>{item.quotaCharged === false && <p className="mt-1 text-[10px] font-bold text-amber-700 dark:text-amber-300">{t('ordersAdmin.freeLink')}</p>}</div><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${item.isLocked ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-600'}`}>{item.isLocked ? t('ordersAdmin.locked', 'Locked') : t('ordersAdmin.active', 'Active')}</span></div>{(item.setupUrl || item.viewUrl) && <div className="mt-2 flex flex-wrap gap-2">{item.setupUrl && <a href={item.setupUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-bold text-foreground hover:bg-muted"><ExternalLink className="h-3 w-3" />{t('createOrder.setupLink', 'Setup link')}</a>}{item.viewUrl && <a href={item.viewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-bold text-foreground hover:bg-muted"><Eye className="h-3 w-3" />{t('createOrder.viewLink', 'View link')}</a>}</div>}</div>)}</div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">{t('ordersAdmin.noItems', 'No NFC items have been generated for this order.')}</div>
                   )}
@@ -688,25 +660,9 @@ export const OrdersManagementPage: React.FC = () => {
               <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.customer', 'Customer')}</span><input required value={editForm.customerName} onChange={(event) => setEditForm((form) => ({ ...form, customerName: event.target.value }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary" /></label>
               <div className="block"><label htmlFor="edit-customer-phone" className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.customerPhone', 'Customer phone')}</label><CustomerPhoneInput id="edit-customer-phone" value={editForm.customerPhone} onChange={(customerPhone) => setEditForm((form) => ({ ...form, customerPhone }))} countryCodeLabel={t('ordersAdmin.countryCode', 'Country code')} phoneNumberLabel={t('ordersAdmin.phoneNumber', 'Phone number')} placeholder={t('ordersAdmin.customerPhonePlaceholder', '591234567')} hint={t('ordersAdmin.customerPhoneHint', 'For +970/+972 enter 9 digits starting with 5. For +962 enter 9 digits starting with 7.')} /></div>
               <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.externalOrderId', 'External order ID')}</span><input value={editForm.externalOrderId} onChange={(event) => setEditForm((form) => ({ ...form, externalOrderId: event.target.value }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary" /></label>
-              <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.status', 'Status')}</span><select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value as OrderStatus }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary"><option value="PENDING">{statusLabel('PENDING')}</option><option value="COMPLETED">{statusLabel('COMPLETED')}</option></select></label>
+              <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.status', 'Status')}</span><select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value as OrderStatus }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary">{STATUSES.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></label>
             </div>
             <div className="mt-6 grid grid-cols-2 gap-3"><button type="button" disabled={isSubmitting} onClick={() => setIsEditOpen(false)} className="rounded-xl border border-border px-4 py-3 text-xs font-bold text-foreground hover:bg-muted">{t('ordersAdmin.cancel', 'Cancel')}</button><button type="submit" disabled={isSubmitting} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-extrabold text-primary-foreground disabled:opacity-60">{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}{t('ordersAdmin.save', 'Save Changes')}</button></div>
-          </form>
-        </div>
-      )}
-
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !isSubmitting) setIsCreateOpen(false); }}>
-          <form onSubmit={handleCreate} className="w-full max-w-md rounded-3xl border border-border bg-card p-5 shadow-2xl sm:p-6">
-            <div className="flex items-center justify-between"><h2 className="text-xl font-extrabold text-foreground">{t('ordersAdmin.createTitle', 'Add New Order')}</h2><button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-xl border border-border p-2 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button></div>
-            <div className="mt-5 space-y-4">
-              <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.merchant', 'Merchant')}</span><select required value={createForm.merchantId} onChange={(event) => setCreateForm((form) => ({ ...form, merchantId: event.target.value }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary"><option value="" disabled>{t('ordersAdmin.selectMerchant', 'Select a merchant')}</option>{merchants.map((merchant) => <option key={merchant.id} value={merchant.id}>{merchant.companyName || merchant.email}</option>)}</select></label>
-              <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.customer', 'Customer')}</span><input required value={createForm.customerName} onChange={(event) => setCreateForm((form) => ({ ...form, customerName: event.target.value }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary" /></label>
-              <div className="block"><label htmlFor="admin-create-customer-phone" className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.customerPhone', 'Customer phone')}</label><CustomerPhoneInput id="admin-create-customer-phone" value={createForm.customerPhone} onChange={(customerPhone) => setCreateForm((form) => ({ ...form, customerPhone }))} countryCodeLabel={t('ordersAdmin.countryCode', 'Country code')} phoneNumberLabel={t('ordersAdmin.phoneNumber', 'Phone number')} placeholder={t('ordersAdmin.customerPhonePlaceholder', '591234567')} hint={t('ordersAdmin.customerPhoneHint', 'For +970/+972 enter 9 digits starting with 5. For +962 enter 9 digits starting with 7.')} /></div>
-              <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.externalOrderId', 'External order ID')}</span><input value={createForm.externalOrderId} onChange={(event) => setCreateForm((form) => ({ ...form, externalOrderId: event.target.value }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary" /></label>
-              <label className="block"><span className="mb-1.5 block text-xs font-bold text-foreground">{t('ordersAdmin.status', 'Status')}</span><select value={createForm.status} onChange={(event) => setCreateForm((form) => ({ ...form, status: event.target.value as OrderStatus }))} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary"><option value="PENDING">{statusLabel('PENDING')}</option><option value="COMPLETED">{statusLabel('COMPLETED')}</option></select></label>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-3"><button type="button" disabled={isSubmitting} onClick={() => setIsCreateOpen(false)} className="rounded-xl border border-border px-4 py-3 text-xs font-bold text-foreground hover:bg-muted">{t('ordersAdmin.cancel', 'Cancel')}</button><button type="submit" disabled={isSubmitting || !createForm.merchantId} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-extrabold text-primary-foreground disabled:opacity-60">{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}{t('ordersAdmin.create', 'Create Order')}</button></div>
           </form>
         </div>
       )}
@@ -716,7 +672,7 @@ export const OrdersManagementPage: React.FC = () => {
           <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 text-center shadow-2xl">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive"><Trash2 className="h-6 w-6" /></div>
             <h2 className="mt-4 text-lg font-extrabold text-foreground">{t('ordersAdmin.deleteTitle', 'Delete Order?')}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{t('ordersAdmin.deleteConfirm', 'This permanently deletes order {{order}} and its generated items. This action cannot be undone.', { order: selectedOrder.externalOrderId || `#${selectedOrder.id.slice(0, 8)}` })}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{t('ordersAdmin.deleteConfirm', 'This permanently deletes order {{order}} and its generated items. This action cannot be undone.', { order: selectedOrder.externalOrderId || `#${selectedOrder.orderNumber}` })}</p>
             <div className="mt-6 grid grid-cols-2 gap-3"><button disabled={isSubmitting} onClick={() => setIsDeleteOpen(false)} className="rounded-xl border border-border px-4 py-3 text-xs font-bold text-foreground hover:bg-muted">{t('ordersAdmin.cancel', 'Cancel')}</button><button disabled={isSubmitting} onClick={() => void handleDelete()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-3 text-xs font-extrabold text-destructive-foreground disabled:opacity-60">{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}{t('ordersAdmin.confirmDelete', 'Delete Permanently')}</button></div>
           </div>
         </div>

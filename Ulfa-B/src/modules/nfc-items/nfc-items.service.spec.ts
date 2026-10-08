@@ -325,15 +325,32 @@ describe('NfcItemsService public viewer access', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('rejects inactive and missing items at both public endpoints', async () => {
+  it('tells the viewer a locked item is paused, with the reason, and never serves it', async () => {
     const { service, repository } = makeService();
-    repository.findOne.mockResolvedValue({ ...storedItem(), isLocked: true });
-    await expect(service.findPublicChallenge('test-tag')).rejects.toThrow(
-      ForbiddenException,
-    );
-    await expect(
-      service.verifyViewerPassword('test-tag', '1234'),
-    ).rejects.toThrow(ForbiddenException);
+    repository.findOne.mockResolvedValue({
+      ...storedItem(),
+      isLocked: true,
+      lockReason: 'Back after Eid',
+    });
+    const challenge = await service.findPublicChallenge('test-tag');
+    expect(challenge).toMatchObject({
+      nfcId: 'test-tag',
+      locked: true,
+      lockReason: 'Back after Eid',
+      viewerAuthType: 'NONE',
+    });
+    expect(challenge).not.toHaveProperty('viewerAuthPrompt');
+    expect(challenge).not.toHaveProperty('encryption');
+
+    const rejection = service.verifyViewerPassword('test-tag', '1234');
+    await expect(rejection).rejects.toThrow(ForbiddenException);
+    await expect(rejection).rejects.toMatchObject({
+      response: { code: 'NFC_ITEM_INACTIVE', reason: 'Back after Eid' },
+    });
+  });
+
+  it('rejects missing items at both public endpoints', async () => {
+    const { service, repository } = makeService();
     repository.findOne.mockResolvedValue(null);
     await expect(service.findPublicChallenge('missing')).rejects.toThrow(
       NotFoundException,

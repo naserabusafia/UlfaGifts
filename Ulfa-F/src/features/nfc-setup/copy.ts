@@ -51,8 +51,6 @@ const en = {
     textShort: 'A slightly longer answer, please.',
   },
   answerNote: 'Capitals, hamza and diacritics won’t matter.',
-  lockScreenTitle: 'For your eyes only',
-  theySee: 'What they’ll see',
 
   keepEyebrow: 'One thing to keep',
   keepTitle: 'Your spare key',
@@ -80,6 +78,8 @@ const en = {
   expiredTitle: 'Still there?',
   expiredBody: 'For safety we lock the page after a while. Your work is kept — open it again to carry on.',
 
+  lockChanged: 'Lock changed',
+
   sectionsEyebrow: 'What’s inside',
   sectionsTitle: 'What will they find?',
   sectionsBody: 'The letter always comes first. Turn on what you’d like after it, and drag to set the order.',
@@ -88,6 +88,13 @@ const en = {
   alwaysFirst: 'Always first',
   look: 'Have a look',
   dragHint: 'Drag to reorder',
+  moveUp: 'Move up',
+  moveDown: 'Move down',
+  shown: 'Shown',
+  hidden: 'Hidden',
+  legendOrder: 'Drag the handle, or use the arrows, to change the order.',
+  legendToggle: 'The switch shows or hides a section.',
+  legendLook: '“Have a look” shows how it will look.',
   sectionInfo: {
     photo_wheel: { name: 'Photo wheel', body: 'Photos on a wheel they turn, one memory at a time.' },
     voice_note: { name: 'Voice note', body: 'Your voice, on a little record player.' },
@@ -163,6 +170,14 @@ const en = {
   keepEditing: 'Keep editing',
   changesLive: 'Anything you change from now shows up right away.',
   changeSecret: 'Change the lock',
+  currentLock: 'The lock (optional to change)',
+  autoSaved: 'Saved',
+  autoSaveNote: 'No save button needed — every change is saved as you make it.',
+  finish: 'I’m done',
+  savedEyebrow: 'All saved',
+  savedTitle: 'Your changes are on the necklace',
+  savedBody: 'Everything you changed is saved and already live. Next time they open it, they’ll find:',
+  notesCount: (count: number) => `${count} ${count === 1 ? 'recording' : 'recordings'}`,
   leaveWarning: 'Uploads are still running. Leave anyway?',
 };
 
@@ -219,8 +234,6 @@ const ar: typeof en = {
     textShort: 'جواب أطول شوي لو سمحت.',
   },
   answerNote: 'الحروف الكبيرة والهمزات والتشكيل ما بتفرق.',
-  lockScreenTitle: 'لعيونك فقط',
-  theySee: 'هيك رح يشوفها',
 
   keepEyebrow: 'إشي واحد خبّيه',
   keepTitle: 'مفتاحك الاحتياطي',
@@ -248,6 +261,8 @@ const ar: typeof en = {
   expiredTitle: 'لسّاتك هون؟',
   expiredBody: 'للأمان منقفل الصفحة بعد فترة. شغلك محفوظ — افتحها وكمّل من مكانك.',
 
+  lockChanged: 'تغيّر القفل',
+
   sectionsEyebrow: 'شو جوّاها',
   sectionsTitle: 'شو رح يلاقي جوّا؟',
   sectionsBody: 'الرسالة دايماً أول إشي. شغّل اللي بدك ياه بعدها، واسحب لترتّب.',
@@ -256,6 +271,13 @@ const ar: typeof en = {
   alwaysFirst: 'دايماً أولاً',
   look: 'شوف',
   dragHint: 'اسحب لترتّب',
+  moveUp: 'لفوق',
+  moveDown: 'لتحت',
+  shown: 'ظاهر',
+  hidden: 'مخفي',
+  legendOrder: 'اسحب من المقبض، أو استخدم الأسهم، لتغيّر الترتيب.',
+  legendToggle: 'المفتاح بيظهر القسم أو بيخفيه.',
+  legendLook: '«شوف» بتوريك كيف رح يطلع.',
   sectionInfo: {
     photo_wheel: { name: 'دولاب الصور', body: 'صور على دولاب بيلفّه، ذكرى ذكرى.' },
     voice_note: { name: 'رسالة صوتية', body: 'صوتك على مشغّل أسطوانات صغير.' },
@@ -331,6 +353,14 @@ const ar: typeof en = {
   keepEditing: 'كمّل تعديل',
   changesLive: 'أي إشي بتغيّره من هلأ بيظهر فوراً.',
   changeSecret: 'غيّر القفل',
+  currentLock: 'القفل (تغييره اختياري)',
+  autoSaved: 'محفوظ',
+  autoSaveNote: 'ما في زر حفظ — كل تعديل بينحفظ لحاله أول بأول.',
+  finish: 'خلصت',
+  savedEyebrow: 'انحفظ كل إشي',
+  savedTitle: 'تعديلاتك صارت عالسنسال',
+  savedBody: 'كل اللي غيّرته انحفظ وصار شغّال. أول ما يفتحها رح يلاقي:',
+  notesCount: (count: number) => (count === 1 ? 'تسجيل واحد' : count === 2 ? 'تسجيلين' : `${count} تسجيلات`),
   leaveWarning: 'في رفع لسا شغّال. بدك تطلع؟',
 };
 

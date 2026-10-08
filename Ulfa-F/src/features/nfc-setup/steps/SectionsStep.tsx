@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { GripVertical, Mail } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, GripVertical, KeyRound, Mail, ToggleRight } from 'lucide-react';
 import { demoSections } from '../../nfc-experience/demo/sections';
 import type { ExperienceSection } from '../../nfc-experience/types/experience';
 import type { ServerSection } from '../api';
@@ -13,10 +13,11 @@ import type { GiftLanguage } from './AccessSteps';
 type Props = {
   copy: SetupCopy; language: GiftLanguage; theme: string; occasion: string; sections: ServerSection[];
   onChange: (sections: ServerSection[]) => Promise<void>; onLanguage: (language: GiftLanguage) => void; onNext: () => void;
+  lockLabel: string; onChangeLock: () => void;
 };
 
-function SectionRow({ section, demo, copy, props, onToggle, onMove, onLook, onDragEnd }: {
-  section: ServerSection; demo?: ExperienceSection; copy: SetupCopy; props: Props;
+function SectionRow({ section, demo, copy, props, position, first, last, onToggle, onMove, onLook, onDragEnd }: {
+  section: ServerSection; demo?: ExperienceSection; copy: SetupCopy; props: Props; position: number; first: boolean; last: boolean;
   onToggle: () => void; onMove: (delta: number) => void; onLook: () => void; onDragEnd: () => void;
 }) {
   const controls = useDragControls();
@@ -25,22 +26,29 @@ function SectionRow({ section, demo, copy, props, onToggle, onMove, onLook, onDr
     className={`s-sec${section.isVisible ? ' is-on' : ''}`}
     // The whole card toggles; its own controls stop the click.
     onClick={onToggle}>
-    <button type="button" className="s-handle" aria-label={`${copy.dragHint}: ${info.name}`}
-      onPointerDown={(e) => { e.stopPropagation(); controls.start(e); }} onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); onMove(e.key === 'ArrowUp' ? -1 : 1); }
-      }}>
-      <GripVertical />
-    </button>
+    <span className="s-order" onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="s-arrow" aria-label={`${copy.moveUp}: ${info.name}`} disabled={first}
+        onClick={() => onMove(-1)}><ChevronUp aria-hidden="true" /></button>
+      <button type="button" className="s-handle" aria-label={`${copy.dragHint}: ${info.name}`}
+        onPointerDown={(e) => { e.stopPropagation(); controls.start(e); }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); onMove(e.key === 'ArrowUp' ? -1 : 1); }
+        }}>
+        <GripVertical />
+      </button>
+      <button type="button" className="s-arrow" aria-label={`${copy.moveDown}: ${info.name}`} disabled={last}
+        onClick={() => onMove(1)}><ChevronDown aria-hidden="true" /></button>
+    </span>
     <span className="s-sec__thumb">
       {demo && <MiniSection section={demo} language={props.language} theme={props.theme} occasion={props.occasion} />}
     </span>
     <span className="s-sec__text">
-      <span className="s-sec__name">{info.name}</span>
+      <span className="s-sec__name"><span className="s-sec__pos" aria-hidden="true">{position}</span>{info.name}</span>
       <span className="s-sec__body">{info.body}</span>
       <span className="s-sec__meta">
+        <span className={`s-sec__state${section.isVisible ? ' is-on' : ''}`}>{section.isVisible ? copy.shown : copy.hidden}</span>
         <button type="button" className="s-link" style={{ fontSize: 'inherit', padding: 0 }}
-          onClick={(e) => { e.stopPropagation(); onLook(); }}>{copy.look}</button>
+          onClick={(e) => { e.stopPropagation(); onLook(); }}><Eye aria-hidden="true" />{copy.look}</button>
       </span>
     </span>
     <label className="s-switch" onClick={(e) => e.stopPropagation()}>
@@ -84,12 +92,17 @@ export default function SectionsStep(props: Props) {
         <button type="button" aria-pressed={language === 'en'} onClick={() => props.onLanguage('en')} lang="en">English</button>
       </div>
     </div>
+    <ul className="s-legend">
+      <li><span className="s-legend__icon" aria-hidden="true"><GripVertical /><ChevronUp /></span>{copy.legendOrder}</li>
+      <li><span className="s-legend__icon" aria-hidden="true"><ToggleRight /></span>{copy.legendToggle}</li>
+      <li><span className="s-legend__icon" aria-hidden="true"><Eye /></span>{copy.legendLook}</li>
+    </ul>
     <ul className="s-sections" style={{ marginBottom: 12 }}>
       <li className="s-sec is-fixed">
         <span aria-hidden="true" />
         <span className="s-sec__thumb s-sec__envelope"><Mail aria-hidden="true" /></span>
         <span className="s-sec__text">
-          <span className="s-sec__name">{copy.letterName}</span>
+          <span className="s-sec__name"><span className="s-sec__pos" aria-hidden="true">1</span>{copy.letterName}</span>
           <span className="s-sec__body">{copy.letterBody}</span>
           <span className="s-sec__meta" style={{ color: 'var(--ink-3)' }}>{copy.alwaysFirst}</span>
         </span>
@@ -97,12 +110,19 @@ export default function SectionsStep(props: Props) {
     </ul>
     <Reorder.Group as="ul" axis="y" values={order} onReorder={setDragOrder} className="s-sections">
       {order.map((section, index) => <SectionRow key={section.id} section={section} demo={demoFor(section.key)} copy={copy}
-        props={props} onLook={() => setLooking(section.key)} onMove={(delta) => move(index, delta)}
+        props={props} position={index + 2} first={index === 0} last={index === order.length - 1} onLook={() => setLooking(section.key)} onMove={(delta) => move(index, delta)}
         onToggle={() => save(order.map((s) => (s.id === section.id ? { ...s, isVisible: !s.isVisible } : s)))}
         onDragEnd={() => { if (dragOrder) save(dragOrder); }} />)}
     </Reorder.Group>
     {!order.some((s) => s.isVisible) && <p className="s-note" style={{ marginTop: 14 }}>{copy.noSections}</p>}
     {error && <p className="s-error" role="alert" style={{ marginTop: 14 }}>{error}</p>}
+    {/* Changing the lock is optional, so it sits here quietly rather than as a step. */}
+    <div className="s-lockrow">
+      <KeyRound aria-hidden="true" />
+      <span><small>{copy.currentLock}</small>{props.lockLabel}</span>
+      <button type="button" className="s-link" onClick={props.onChangeLock}>{copy.changeSecret}</button>
+    </div>
+    <p className="s-autosave">{copy.autoSaveNote}</p>
     <div className="s-actions">
       <button type="button" className="s-btn" onClick={props.onNext}>{copy.next}</button>
     </div>

@@ -23,8 +23,8 @@ export const FirstLoginPasswordModal: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!newPassword || newPassword.length < 6) {
-      setError(t('login.passwordRequired', 'Password must be at least 6 characters long'));
+    if (!newPassword || newPassword.length < 8) {
+      setError(t('auth.passwordMin', 'Password must be at least 8 characters long'));
       return;
     }
 

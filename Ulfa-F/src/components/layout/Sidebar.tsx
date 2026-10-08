@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Link } from 'react-router-dom';
 import {
   Home,
   ShieldCheck,
   User,
-  Shield,
   Store,
   Globe,
   LogOut,
@@ -13,10 +12,14 @@ import {
   Menu,
   ShoppingCart,
   PackagePlus,
+  TicketPlus,
+  KeyRound,
   X,
 } from 'lucide-react';
 import { routesConfig } from '../../routes';
+import './sidebar.css';
 import { useAuth } from '../../context/AuthContext';
+import { quotaRequestService } from '../../features/quota/quotaRequestService';
 
 const iconMap: Record<string, React.ElementType> = {
   '/': Home,
@@ -26,6 +29,10 @@ const iconMap: Record<string, React.ElementType> = {
   '/merchant/dashboard': Store,
   '/merchant/orders': ShoppingCart,
   '/merchant/orders/new': PackagePlus,
+  '/super-admin/orders/new': PackagePlus,
+  '/super-admin/quota-requests': TicketPlus,
+  '/merchant/quota': TicketPlus,
+  '/merchant/integrations': KeyRound,
   '/profile': User,
 };
 
@@ -33,6 +40,47 @@ export const Sidebar: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingQuota, setPendingQuota] = useState(0);
+  const isAdminRole = user?.role === 'SUPER_ADMIN' || user?.role === 'admin';
+
+  // Admins see how many quota requests are waiting, refreshed now and then
+  // and whenever the requests page answers one.
+  useEffect(() => {
+    if (!isAdminRole) return;
+    let active = true;
+    const refresh = () => {
+      quotaRequestService
+        .pendingCount()
+        .then((count) => { if (active) setPendingQuota(count); })
+        .catch(() => undefined);
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener('quota-requests:changed', refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('quota-requests:changed', refresh);
+    };
+  }, [isAdminRole]);
+
+  // While the mobile drawer is open: the page behind stays put, Escape closes it,
+  // and growing to desktop width closes it too.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileOpen(false); };
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const onWide = () => { if (desktop.matches) setMobileOpen(false); };
+    window.addEventListener('keydown', onKey);
+    desktop.addEventListener('change', onWide);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener('keydown', onKey);
+      desktop.removeEventListener('change', onWide);
+    };
+  }, [mobileOpen]);
 
   const toggleLanguage = () => {
     const nextLang = i18n.language === 'ar' ? 'en' : 'ar';
@@ -42,132 +90,103 @@ export const Sidebar: React.FC = () => {
   // Only render menu items that the logged in user has access to
   const navRoutes = routesConfig.filter((route) => {
     if (!route.showInNav) return false;
+    if (route.limitedQuotaOnly && (user?.isUnlimitedQuota || user?.totalQuota === 'unlimited')) return false;
     if (!route.roles || route.roles.length === 0) return true;
     return user && route.roles.includes(user.role);
   });
 
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'admin';
+  const isMerchant = user?.role === 'MERCHANT' || user?.role === 'manager';
+  const homePath = isAdmin ? '/super-admin/dashboard' : isMerchant ? '/merchant/dashboard' : '/';
+  const portalLabel = isAdmin ? t('portal.side.admin') : isMerchant ? t('portal.side.merchant') : t('portal.side.account');
+  const displayName = user?.companyName || user?.name || user?.email || '';
+  const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
+
   return (
     <>
-      {/* Mobile Top Header with Hamburger Button */}
-      <div className="flex md:hidden items-center justify-between border-b border-border bg-card/80 backdrop-blur-md px-4 py-3 sticky top-0 z-40">
-        <Link to="/" className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-primary to-indigo-600 flex items-center justify-center text-primary-foreground font-bold shadow-xs">
-            U
-          </div>
-          <span className="text-base font-extrabold text-foreground tracking-tight">
-            {t('app.title')}
-          </span>
+      {/* Mobile top bar with menu toggle */}
+      <div className="ps-mobilebar">
+        <Link to={homePath} className="ps-brand" onClick={() => setMobileOpen(false)}>
+          <span className="ps-wordmark">Ulfa</span>
+          <span className="ps-portal">{portalLabel}</span>
         </Link>
-
-        {/* Hamburger Menu Toggle Button */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-xl border border-border p-2 text-foreground/80 hover:bg-muted focus:outline-none transition"
+          className="ps-iconbtn"
           aria-label="Toggle Burger Menu"
+          aria-expanded={mobileOpen}
+          aria-controls="portal-sidebar"
         >
-          {mobileOpen ? <X className="h-5 w-5 text-primary" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
-      {/* Main Sidebar (Desktop persistent left panel + Mobile collapsible drawer) */}
-      <aside
-        className={`w-full border-b border-border bg-card/60 backdrop-blur-md p-4 md:w-64 md:min-h-screen md:border-b-0 md:border-e flex flex-col justify-between shrink-0 ${
-          mobileOpen ? 'block' : 'hidden md:flex'
-        }`}
-      >
-        <div className="space-y-6">
-          {/* Brand Logo & Title (Desktop Only) */}
-          <Link to="/" className="hidden md:flex items-center gap-2.5 px-2 py-1">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-primary to-indigo-600 flex items-center justify-center text-primary-foreground font-bold shadow-sm shadow-primary/20">
-              U
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-extrabold tracking-tight text-foreground leading-none">
-                {t('app.title')}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-medium mt-1">
-                Portal Dashboard
-              </span>
-            </div>
+      {mobileOpen && <div className="ps-backdrop" onClick={() => setMobileOpen(false)} aria-hidden="true" />}
+
+      {/* Sidebar: persistent on desktop, fixed drawer on mobile */}
+      <aside id="portal-sidebar" className={`ps-side ${mobileOpen ? 'is-open' : ''}`}>
+        <div className="ps-top">
+          <div className="ps-drawer-head">
+            <Link to={homePath} className="ps-brand ps-brand--drawer" onClick={() => setMobileOpen(false)}>
+              <span className="ps-wordmark">Ulfa</span>
+              <span className="ps-portal">{portalLabel}</span>
+            </Link>
+            <button onClick={() => setMobileOpen(false)} className="ps-iconbtn" aria-label={t('merchantOrders.close', 'Close')}>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <Link to={homePath} className="ps-brand">
+            <span className="ps-wordmark">Ulfa</span>
+            <span className="ps-portal">{portalLabel}</span>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="space-y-2">
-            <div className="px-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-              {t('nav.home', 'Navigation')}
-            </div>
+          <nav className="ps-nav" aria-label={t('nav.home', 'Navigation')}>
+            {navRoutes.map((route) => {
+              const Icon = iconMap[route.path] || LayoutDashboard;
 
-            <nav className="flex flex-col gap-1.5">
-              {navRoutes.map((route) => {
-                const Icon = iconMap[route.path] || LayoutDashboard;
-
-                return (
-                  <NavLink
-                    key={route.path}
-                    to={route.path}
-                    onClick={() => setMobileOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center justify-between whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                        isActive
-                          ? 'bg-primary text-primary-foreground font-bold shadow-xs'
-                          : 'text-foreground/90 hover:bg-muted hover:text-foreground'
-                      }`
-                    }
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span>{route.titleKey ? t(route.titleKey) : route.path}</span>
-                    </div>
-                  </NavLink>
-                );
-              })}
-            </nav>
-          </div>
+              return (
+                <NavLink
+                  key={route.path}
+                  to={route.path}
+                  end
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) => `ps-link ${isActive ? 'is-active' : ''}`}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+                  <span>{route.titleKey ? t(route.titleKey) : route.path}</span>
+                  {route.path === '/super-admin/quota-requests' && pendingQuota > 0 && (
+                    <span className="ps-badge" aria-label={t('quotaRequests.pendingBadge', { count: pendingQuota })}>{pendingQuota}</span>
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Footer Controls: Language Switcher, User Card, & Logout */}
-        <div className="mt-6 space-y-3 pt-4 border-t border-border">
-          {/* Language Switcher */}
-          <button
-            onClick={toggleLanguage}
-            className="w-full flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition shadow-xs"
-            title="Switch Language"
-          >
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <span>{t('app.language')}</span>
-            </div>
-            <span className="text-primary font-bold">{i18n.language === 'ar' ? 'EN' : 'عربي'}</span>
+        <div className="ps-foot">
+          <button onClick={toggleLanguage} className="ps-lang" title="Switch Language">
+            <Globe className="h-4 w-4" strokeWidth={1.75} />
+            <span>{t('app.language')}</span>
+            <b>{i18n.language === 'ar' ? 'EN' : 'عربي'}</b>
           </button>
 
-          {/* Logged In User Info & Logout Button */}
           {isAuthenticated && user && (
-            <div className="rounded-2xl border border-border bg-card p-3 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                    <Shield className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="overflow-hidden">
-                    <p className="text-xs font-bold text-foreground truncate">
-                      {user.name || user.email}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground capitalize truncate">
-                      {user.role}
-                    </p>
-                  </div>
-                </div>
+            <div className="ps-user">
+              <span className="ps-avatar" aria-hidden="true">{initial}</span>
+              <div className="ps-user__text">
+                <b>{displayName}</b>
+                <small>{user.email !== displayName ? user.email : portalLabel}</small>
               </div>
-
               <button
                 onClick={() => {
                   setMobileOpen(false);
                   logout();
                 }}
-                className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition"
+                className="ps-iconbtn ps-logout"
+                title={t('app.logout')}
+                aria-label={t('app.logout')}
               >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>{t('app.logout')}</span>
+                <LogOut className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </div>
           )}

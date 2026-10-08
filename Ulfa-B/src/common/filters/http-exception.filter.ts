@@ -48,6 +48,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       ...(exceptionDetails?.available !== undefined
         ? { available: exceptionDetails.available }
         : {}),
+      ...(exceptionDetails?.reason !== undefined
+        ? { reason: exceptionDetails.reason }
+        : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     };

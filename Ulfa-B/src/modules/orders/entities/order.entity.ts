@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Generated,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -14,6 +15,10 @@ import { NfcItem } from '../../nfc-items/entities/nfc-item.entity';
 export enum OrderStatus {
   PENDING = 'PENDING',
   COMPLETED = 'COMPLETED',
+  // The links are switched off and their quota is refunded. Until the
+  // retention window passes the order can be restored (quota charged again);
+  // after it, what the buyer uploaded is deleted and the order stays cancelled.
+  CANCELLED = 'CANCELLED',
 }
 
 export enum OrderSource {
@@ -27,6 +32,11 @@ export enum OrderSource {
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  // Short human-facing number, used as the prefix of the item links.
+  @Column({ name: 'order_number', unique: true })
+  @Generated('increment')
+  orderNumber: number;
 
   @Column({ name: 'external_order_id', nullable: true })
   externalOrderId?: string;
@@ -60,6 +70,13 @@ export class Order {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  cancelledAt?: Date | null;
+
+  // Set once the buyer's photos, recordings and letters have been deleted.
+  @Column({ name: 'content_purged_at', type: 'timestamptz', nullable: true })
+  contentPurgedAt?: Date | null;
 
   @ManyToOne(() => User, (user) => user.orders, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'merchant_id' })

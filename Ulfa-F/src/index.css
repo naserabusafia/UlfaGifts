@@ -1,25 +1,43 @@
 @import "tailwindcss";
+@import '@fontsource/ibm-plex-sans-arabic/arabic-400.css';
+@import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
+@import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
+@import '@fontsource/ibm-plex-sans-arabic/arabic-700.css';
+@import '@fontsource/ibm-plex-sans-arabic/latin-400.css';
+@import '@fontsource/ibm-plex-sans-arabic/latin-500.css';
+@import '@fontsource/ibm-plex-sans-arabic/latin-600.css';
+@import '@fontsource/ibm-plex-sans-arabic/latin-700.css';
+@import '@fontsource/el-messiri/arabic-600.css';
+@import '@fontsource/el-messiri/arabic-700.css';
+@import '@fontsource/cormorant-garamond/latin-500.css';
+@import '@fontsource/cormorant-garamond/latin-600.css';
+@import '@fontsource/cormorant-garamond/latin-700.css';
 
 :root {
-  --background: #ffffff;
-  --foreground: #09090b;
-  --card: #ffffff;
-  --card-foreground: #09090b;
-  --popover: #ffffff;
-  --popover-foreground: #09090b;
-  --primary: #4f46e5;
-  --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
-  --destructive: #ef4444;
+  /* Brand: the same three colours as the gift setup and NFC pages (wax red, beige paper, navy ink). */
+  --brand-red: #7b2e3c;
+  --brand-beige: #ede1dd;
+  --brand-navy: #2c2a4c;
+
+  --background: #f3ece9;
+  --foreground: #2c2a4c;
+  --card: #fbf8f7;
+  --card-foreground: #2c2a4c;
+  --popover: #fbf8f7;
+  --popover-foreground: #2c2a4c;
+  --primary: #2c2a4c;
+  --primary-foreground: #f6efec;
+  --secondary: #ede1dd;
+  --secondary-foreground: #2c2a4c;
+  --muted: #ece3df;
+  --muted-foreground: #6c6880;
+  --accent: #ede1dd;
+  --accent-foreground: #2c2a4c;
+  --destructive: #b3261e;
   --destructive-foreground: #ffffff;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #6366f1;
+  --border: #e3d7d3;
+  --input: #ddd0cc;
+  --ring: #7b2e3c;
   --radius: 0.5rem;
 }
 
@@ -71,7 +89,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   [dir="rtl"] {

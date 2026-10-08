@@ -8,6 +8,9 @@ import { OrdersManagementPage } from './pages/OrdersManagementPage';
 import { MerchantDashboardPage } from './pages/MerchantDashboardPage';
 import { CreateMerchantOrderPage } from './pages/CreateMerchantOrderPage';
 import { MerchantOrdersManagementPage } from './pages/MerchantOrdersManagementPage';
+import { MerchantQuotaRequestsPage } from './pages/MerchantQuotaRequestsPage';
+import { MerchantIntegrationKeysPage } from './pages/MerchantIntegrationKeysPage';
+import { QuotaRequestsAdminPage } from './pages/QuotaRequestsAdminPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -21,6 +24,8 @@ export interface RouteConfigItem {
   roles?: UserRole[];
   titleKey?: string;
   showInNav?: boolean;
+  /** Left out of the nav for merchants on an unlimited quota. */
+  limitedQuotaOnly?: boolean;
 }
 
 export const routesConfig: RouteConfigItem[] = [
@@ -67,6 +72,20 @@ export const routesConfig: RouteConfigItem[] = [
     showInNav: true,
   },
   {
+    path: '/super-admin/orders/new',
+    element: React.createElement(CreateMerchantOrderPage),
+    roles: ['SUPER_ADMIN', 'admin'],
+    titleKey: 'nav.createOrder',
+    showInNav: true,
+  },
+  {
+    path: '/super-admin/quota-requests',
+    element: React.createElement(QuotaRequestsAdminPage),
+    roles: ['SUPER_ADMIN', 'admin'],
+    titleKey: 'nav.quotaRequests',
+    showInNav: true,
+  },
+  {
     path: '/merchant/dashboard',
     element: React.createElement(MerchantDashboardPage),
     roles: ['MERCHANT', 'manager'],
@@ -85,6 +104,21 @@ export const routesConfig: RouteConfigItem[] = [
     element: React.createElement(CreateMerchantOrderPage),
     roles: ['MERCHANT', 'manager'],
     titleKey: 'nav.createOrder',
+    showInNav: true,
+  },
+  {
+    path: '/merchant/quota',
+    element: React.createElement(MerchantQuotaRequestsPage),
+    roles: ['MERCHANT', 'manager'],
+    titleKey: 'nav.requestQuota',
+    showInNav: true,
+    limitedQuotaOnly: true,
+  },
+  {
+    path: '/merchant/integrations',
+    element: React.createElement(MerchantIntegrationKeysPage),
+    roles: ['MERCHANT', 'manager'],
+    titleKey: 'nav.integrations',
     showInNav: true,
   },
   {

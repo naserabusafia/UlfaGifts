@@ -23,7 +23,10 @@ import {
 } from '../nfc-items/entities/nfc-item.entity';
 import { OccasionSectionContent } from '../nfc-items/entities/occasion-section-content.entity';
 import { Section } from '../nfc-items/entities/section.entity';
-import { NfcItemsService } from '../nfc-items/nfc-items.service';
+import {
+  lockedItemError,
+  NfcItemsService,
+} from '../nfc-items/nfc-items.service';
 import { StorageService } from '../storage/storage.service';
 import {
   ContentDto,
@@ -87,7 +90,7 @@ export class SetupService {
       relations: { occasion: { theme: true } },
     });
     if (!item) throw new NotFoundException('Invalid setup link');
-    if (item.isLocked) throw new ForbiddenException('NFC_ITEM_INACTIVE');
+    if (item.isLocked) throw lockedItemError(item);
     return item;
   }
 
